@@ -1,0 +1,25 @@
+{
+  "name": "longmemory-plugins",
+  "owner": {
+    "name": "killvxk",
+    "email": ""
+  },
+  "metadata": {
+    "description": "Layered memory system for Claude Code — auto-indexing, tiered compression, smart archiving",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "longmemory",
+      "description": "Layered memory system for Claude Code with auto-indexing, tiered compression (L0/L1/L2), and smart archiving to solve memory bloat and context explosion",
+      "version": "1.0.0",
+      "source": "./ccplugin",
+      "category": "productivity",
+      "author": { "name": "killvxk" },
+      "homepage": "https://github.com/killvxk/LongMemory",
+      "repository": "https://github.com/killvxk/LongMemory",
+      "license": "MIT",
+      "keywords": ["memory", "layered", "compact", "archive", "index"]
+    }
+  ]
+}
