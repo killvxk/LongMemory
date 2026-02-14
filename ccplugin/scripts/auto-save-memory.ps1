@@ -65,21 +65,32 @@ try {
         New-Item -ItemType Directory -Path $memoryDir -Force | Out-Null
     }
 
-    # 构建 systemMessage - 指示 Claude 调用 /longmemory:save 命令
-    $systemMessage = @"
-<AUTO-SAVE-MEMORY>
-检测到 git 仓库中有文件变更。在停止前，你必须保存工作记忆。
+    # reason 作为下一轮用户输入回传给 Claude，包含完整的 save 执行指令
+    $reason = @"
+检测到 git 仓库中有文件变更，请在停止前保存工作记忆。
 
-请立即使用 Skill 工具调用 longmemory:save 命令来保存记忆。不要手动执行保存逻辑，必须通过 Skill 工具触发命令。
+请按照以下步骤执行：
 
-完成保存后，你可以停止。
-</AUTO-SAVE-MEMORY>
+1. 收集 git 变更上下文：
+   git status --porcelain
+   git diff --stat HEAD
+   git log --oneline -5
+
+2. 分析当前会话内容，生成 memory 文件，写入 docs/memory/YYYY-MM-DD-description.md
+   使用标准 7 section 模板：Summary, Changes Made, Decisions & Rationale, Technical Details, Testing, Open Items / Follow-ups, Learnings
+
+3. 更新 docs/memory/index.json：
+   - 如果不存在，创建初始索引（version: 1.0）
+   - 添加新 entry（layer: L0, compacted: false）
+   - 从内容提取 3-5 个 tags
+   - 更新 stats（total, l0/l1/l2 计数, totalSizeBytes）
+
+完成保存和索引更新后，你可以停止。
 "@
 
     $response = @{
         decision = "block"
-        reason = "Need to save work memory and update index before stopping"
-        systemMessage = $systemMessage
+        reason = $reason
     }
 
     $response | ConvertTo-Json -Depth 10 -Compress
