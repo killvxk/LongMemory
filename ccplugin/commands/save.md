@@ -5,7 +5,7 @@ allowed-tools: Bash, Read, Write, Glob, Grep
 
 # 保存工作记忆
 
-你需要将当前会话的工作记忆保存到项目的 `docs/memory/` 目录，并更新索引文件。
+你需要将当前会话的工作记忆保存到项目的 `docs/memory/` 目录，并维护 L0/L1/L2 三层检索结构。
 
 ## 执行步骤
 
@@ -22,7 +22,6 @@ mkdir -p docs/memory
 如果当前目录是 git 仓库，收集变更信息：
 
 ```bash
-# 检查是否是 git 仓库
 if git rev-parse --git-dir > /dev/null 2>&1; then
   echo "=== Git Status ==="
   git status --short
@@ -34,6 +33,8 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
   git log --oneline -5
 fi
 ```
+
+如果 git 命令失败，跳过此步骤，继续后续操作。
 
 ### 3. 分析会话内容
 
@@ -58,19 +59,18 @@ fi
 使用格式：`YYYY-MM-DD-brief-description.md`
 
 - 日期使用今天的日期
-- brief-description 从 Summary 中提取 2-4 个关键词，用连字符连接
+- brief-description 从 Summary 中提取 2-4 个关键词，用连字符连接，全部小写
 - 如果文件名已存在，追加序号：`YYYY-MM-DD-brief-description-2.md`
 
 检查文件名冲突：
 
 ```bash
-# 扫描现有文件
 ls docs/memory/ 2>/dev/null | grep "^$(date +%Y-%m-%d)"
 ```
 
-### 5. 写入 Memory 文件
+### 5. 写入 L2 完整 Memory 文件
 
-使用 Write 工具创建文件，格式如下：
+使用 Write 工具创建 `docs/memory/YYYY-MM-DD-brief-description.md`，格式如下：
 
 ```markdown
 # [会话标题]
@@ -114,110 +114,179 @@ ls docs/memory/ 2>/dev/null | grep "^$(date +%Y-%m-%d)"
 - 经验 2
 ```
 
-### 6. 更新索引文件
+### 6. 生成 .overview.md 概览文件（L1）
 
-读取或创建 `docs/memory/index.json`：
+使用 Write 工具创建 `docs/memory/YYYY-MM-DD-brief-description.overview.md`。
 
-```bash
-# 检查索引文件是否存在
-if [ ! -f docs/memory/index.json ]; then
-  echo "索引文件不存在，将创建初始索引"
-fi
+从 L2 文件中提取内容并按以下格式写入：
+
+```markdown
+### YYYY-MM-DD-brief-description
+**摘要**: [Summary 的前2-3句话]
+**关键决策**: [Decisions & Rationale 中每条决策的一句话总结，用逗号分隔；若无决策则填"无"]
+**待办**: [Open Items 中未完成条目的数量] 项未完成
+**标签**: tag1, tag2, tag3
 ```
 
-如果文件不存在，创建初始结构：
+### 7. 更新 catalog.md（L0 目录索引）
+
+读取 `docs/memory/catalog.md`，如果不存在则创建初始结构：
+
+```markdown
+# Memory Catalog
+
+## Entries
+
+## Recent Overviews
+```
+
+**操作逻辑**：
+
+1. 在 `## Entries` 下追加新行，格式为：
+   ```
+   YYYY-MM-DD | brief-description | tag1,tag2,tag3 | 会话标题
+   ```
+
+2. 在 `## Recent Overviews` 区域顶部（紧接标题行后）插入新条目的概览内容（与 .overview.md 内容相同）：
+   ```markdown
+   ### YYYY-MM-DD-brief-description
+   **摘要**: ...
+   **关键决策**: ...
+   **待办**: N 项未完成
+   **标签**: tag1, tag2, tag3
+   ```
+
+3. 统计 `## Recent Overviews` 下的概览条目数（通过计算 `### ` 开头的行数）：
+   - 如果条目数超过 10，移除区域末尾最旧的概目（其对应的独立 .overview.md 文件已在步骤 6 创建，不需要额外操作）
+
+如果 catalog.md 格式异常（无法解析 `## Entries` 或 `## Recent Overviews` 区域），则直接追加到文件末尾，不覆盖原内容。
+
+使用 Write 工具覆盖写入更新后的 catalog.md。
+
+### 8. 更新 domains.md（领域索引）
+
+读取 `docs/memory/domains.md`，如果不存在则创建初始结构：
+
+```markdown
+# Memory Domains
+```
+
+**操作逻辑**：
+
+根据新条目的 tags，对每个 tag 执行以下操作：
+
+1. 在文件中查找对应的 `## tag名` section
+2. 如果 section 存在：
+   - 在该 section 下追加 `- YYYY-MM-DD-brief-description`
+   - 将标题中的计数 `(N)` 更新为 `(N+1)`
+3. 如果 section 不存在：
+   - 在文件末尾追加新 section：
+     ```markdown
+
+     ## tag名 (1)
+     - YYYY-MM-DD-brief-description
+     ```
+
+一条记忆可以出现在多个领域下（每个 tag 对应一个领域）。
+
+使用 Write 工具覆盖写入更新后的 domains.md。
+
+### 9. 更新 index.json（v2 schema）
+
+读取 `docs/memory/index.json`，如果不存在则创建初始 v2 结构。
+
+**旧版迁移逻辑（v1 → v2）**：
+
+如果读取到的 index.json 的 `version` 字段为 `"1.0"`，自动执行迁移：
+- 删除每个 entry 中的 `layer`、`compacted`、`summary`、`sections` 字段
+- 为每个 entry 新增 `"hasOverview": false`（旧版没有 overview 文件）
+- 将 `version` 更新为 `"2.0"`
+- 重新计算 stats：移除 `byLayer` 字段，保留 `total` 和 `totalSizeBytes`
+- 输出提示: "索引已从 v1.0 迁移到 v2.0"
+
+**v2 schema**：
 
 ```json
 {
-  "version": "1.0",
+  "version": "2.0",
   "lastUpdated": "YYYY-MM-DDTHH:MM:SSZ",
   "stats": {
-    "total": 0,
-    "byLayer": {
-      "L0": 0,
-      "L1": 0,
-      "L2": 0
-    },
-    "totalSizeBytes": 0
+    "total": 42,
+    "totalSizeBytes": 512000
   },
-  "entries": []
+  "entries": [
+    {
+      "file": "YYYY-MM-DD-brief-description.md",
+      "date": "YYYY-MM-DD",
+      "title": "标题",
+      "tags": ["tag1", "tag2", "tag3"],
+      "sizeBytes": 12345,
+      "hasOverview": true
+    }
+  ]
 }
 ```
 
-添加新的 entry：
+**添加新 entry**：
 
+获取文件大小：
+```bash
+# 跨平台：优先尝试 wc，回退到 stat
+wc -c < docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
+  stat -c%s docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
+  stat -f%z docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
+  echo 0
+```
+
+在 `entries` 数组末尾追加新 entry：
 ```json
 {
   "file": "YYYY-MM-DD-brief-description.md",
   "date": "YYYY-MM-DD",
-  "title": "[从文件中提取的标题]",
-  "summary": "[Summary 的第一句话]",
-  "layer": "L0",
-  "sizeBytes": 12345,
+  "title": "[从 L2 文件中提取的标题]",
   "tags": ["tag1", "tag2", "tag3"],
-  "compacted": false,
-  "sections": ["Summary", "Changes Made", "Decisions & Rationale", "Technical Details", "Testing", "Open Items / Follow-ups", "Learnings"]
+  "sizeBytes": 文件字节数,
+  "hasOverview": true
 }
 ```
 
-**提取 tags**：从内容中识别 3-5 个关键词，如：
-- 技术栈名称（React, Python, Azure）
-- 功能模块（auth, api, database）
-- 操作类型（refactor, bugfix, feature）
+**更新 stats**：
+- `total`: 当前 entries 数组长度
+- `totalSizeBytes`: 所有 entries 的 sizeBytes 累加
+- `lastUpdated`: 当前 ISO 8601 时间戳
 
-**获取文件大小**：
-
-```bash
-# Linux/macOS
-wc -c < docs/memory/YYYY-MM-DD-brief-description.md
-
-# 或使用 stat（跨平台）
-stat -c%s docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || stat -f%z docs/memory/YYYY-MM-DD-brief-description.md
-```
-
-更新 stats：
-- `total`: 总条目数 +1
-- `byLayer.L0`: L0 层计数 +1
-- `totalSizeBytes`: 累加新文件大小
-- `lastUpdated`: 当前时间戳
+如果 index.json 损坏（JSON 解析失败），将原文件备份为 `index.json.bak`，然后重新创建 v2 初始结构并添加当前 entry。
 
 使用 Write 工具覆盖写入更新后的 index.json。
 
-### 7. 检查是否需要压缩
+### 10. 输出完成提示
 
-统计 L0 层的条目数：
-
-```bash
-# 从 index.json 中提取 L0 计数
-# 如果 > 10，提示用户
-```
-
-如果 L0 条目数 > 10，输出提示：
+保存全部完成后，输出：
 
 ```
 ✓ Memory 已保存到 docs/memory/YYYY-MM-DD-brief-description.md
+✓ 概览已生成: YYYY-MM-DD-brief-description.overview.md
+✓ 索引已更新 (共 N 条记忆)
 
-注意: 当前有 N 条 L0 记忆，建议运行 /longmemory:compact 进行压缩归档。
+💡 如果本次会话有通用化的经验（与项目无关），可运行 /longmemory:learn 存入全局经验库
 ```
 
-否则输出：
-
-```
-✓ Memory 已保存到 docs/memory/YYYY-MM-DD-brief-description.md
-✓ 索引已更新 (共 N 条记忆: L0: X | L1: Y | L2: Z)
-```
+将 `N` 替换为 index.json 中更新后的 `stats.total` 值。
 
 ## 错误处理
 
-- 如果无法创建目录，提示用户检查权限
-- 如果 git 命令失败，跳过 git 上下文收集
-- 如果索引文件损坏，备份后重新创建
-- 如果文件写入失败，保留原索引不变
+- **目录创建失败**: 提示用户检查写入权限
+- **git 命令失败**: 跳过 git 上下文收集，继续后续步骤
+- **index.json 损坏**: 备份为 `index.json.bak` 后重新创建
+- **catalog.md 格式异常**: 追加到文件末尾，不覆盖原内容
+- **文件写入失败**: 保留原索引不变，提示用户具体错误
 
 ## 完成标准
 
-- [x] docs/memory/ 目录存在
-- [x] Memory 文件已创建，包含所有相关 sections
-- [x] index.json 已更新，新 entry 正确添加
-- [x] stats 统计数据正确
-- [x] 用户收到保存成功的确认消息
+- [x] `docs/memory/` 目录存在
+- [x] L2 Memory 文件已创建（`YYYY-MM-DD-brief-description.md`）
+- [x] L1 Overview 文件已创建（`YYYY-MM-DD-brief-description.overview.md`）
+- [x] `catalog.md` 已更新（Entries 追加、Recent Overviews 更新）
+- [x] `domains.md` 已更新（按 tags 分域索引）
+- [x] `index.json` 已更新为 v2 schema，新 entry 已添加
+- [x] 用户收到保存成功的确认消息和经验提示

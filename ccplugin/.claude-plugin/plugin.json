@@ -1,5 +1,5 @@
 {
   "name": "longmemory",
-  "version": "1.0.0",
-  "description": "Layered memory system for Claude Code — auto-indexing, tiered compression, smart archiving"
+  "version": "2.0.0",
+  "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing, global experience library, keyword-triggered recall"
 }

@@ -1,18 +1,12 @@
 ---
-description: 压缩归档历史记忆，将过期的 L0 压缩为 L1，L1 压缩为 L2
-argument-hint: "[force|dry-run|restore <filename>]"
+description: 可选的磁盘清理工具，删除旧记忆的完整内容只保留概览
+argument-hint: "[dry-run|restore <filename>|clean <days>]"
 allowed-tools: Bash, Read, Write, Glob, Grep
 ---
 
-# 压缩归档历史记忆
+# 可选的磁盘清理工具
 
-将过期的记忆文件按时间分层压缩，减少存储空间并保持索引清晰。
-
-## 分层策略
-
-- **L0 (详细层)**: 最近 7 天的记忆，保留完整内容
-- **L1 (压缩层)**: 7-30 天的记忆，保留关键信息
-- **L2 (归档层)**: 30 天以上的记忆，仅保留摘要和关键决策
+清理旧记忆文件的完整内容，只保留概览文件，释放磁盘空间。这是一个**可选操作**，不影响正常的记忆查询功能（概览文件始终保留）。
 
 ## 执行步骤
 
@@ -20,388 +14,237 @@ allowed-tools: Bash, Read, Write, Glob, Grep
 
 支持以下参数：
 
-- **无参数**: 自动压缩需要降级的文件
-- **force**: 强制重新压缩所有非 L0 文件
-- **dry-run**: 预览压缩效果，不实际执行
-- **restore <filename>**: 从 `.archive/` 恢复原始文件到 `docs/memory/`
+| 参数 | 说明 |
+|------|------|
+| 无参数 | 预览模式，等同 `dry-run` |
+| `dry-run` | 预览可清理的文件，不执行实际删除 |
+| `clean <days>` | 清理 N 天前的记忆原文（默认 90 天） |
+| `restore <filename>` | 从 `.archive/` 恢复指定文件 |
 
-### 2. 读取索引文件
+参数示例：
+- `/longmemory:compact` → 预览模式
+- `/longmemory:compact dry-run` → 预览模式
+- `/longmemory:compact clean` → 清理 90 天前的文件
+- `/longmemory:compact clean 60` → 清理 60 天前的文件
+- `/longmemory:compact restore 2025-11-10-db-migration.md` → 恢复指定文件
 
-检查 `docs/memory/index.json` 是否存在：
+### 2. 计算时间边界
+
+使用 Bash 计算时间边界（`clean <days>` 和 `dry-run` 模式需要）：
 
 ```bash
-if [ ! -f docs/memory/index.json ]; then
-  echo "索引文件不存在，正在扫描 docs/memory/ 生成初始索引..."
-fi
+# 获取 days 参数，默认 90
+DAYS=${DAYS:-90}
+
+# 计算边界日期（跨平台兼容）
+BOUNDARY=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${DAYS}d +%Y-%m-%d 2>/dev/null)
+
+echo "清理边界: ${BOUNDARY} (${DAYS} 天前)"
 ```
 
-如果不存在，扫描 `docs/memory/*.md` 生成初始索引：
+### 3. 扫描可清理文件
+
+扫描 `docs/memory/` 目录下的所有 `.md` 文件（排除隐藏目录和概览文件）：
 
 ```bash
-# 使用 ls 扫描（Windows 兼容）
+# 列出所有记忆文件
 ls docs/memory/*.md 2>/dev/null
 ```
 
-对每个文件：
-- 提取日期（从文件名）
-- Read 读取标题和 Summary
-- 计算文件大小
-- 默认 layer 为 L0，compacted 为 false
+对每个文件，检查：
+1. **文件名日期**：从文件名提取日期（格式 `YYYY-MM-DD-xxx.md`），与边界日期比较
+2. **概览文件**：检查对应的概览文件是否存在（`docs/memory/{文件名}.overview.md`，与 L2 文件同目录）
+3. **已归档**：检查 `docs/memory/.archive/{文件名}` 是否已存在
 
-### 3. 计算分层边界
+只将以下文件纳入可清理列表：
+- 日期早于边界日期
+- 尚未在 `.archive/` 中存在备份
 
-使用 Bash 计算时间边界：
+### 4. 预览模式（dry-run）
 
-```bash
-# 获取今天日期
-TODAY=$(date +%Y-%m-%d)
+输出可清理文件的预览信息：
 
-# L0/L1 边界：7 天前
-L1_BOUNDARY=$(date -d "7 days ago" +%Y-%m-%d 2>/dev/null || date -v-7d +%Y-%m-%d 2>/dev/null)
+```
+[预览] 可清理的文件 (>90天前):
 
-# L1/L2 边界：30 天前
-L2_BOUNDARY=$(date -d "30 days ago" +%Y-%m-%d 2>/dev/null || date -v-30d +%Y-%m-%d 2>/dev/null)
+  - 2025-11-10-db-migration.md (4.2 KB) → 有概览
+  - 2025-10-05-auth-setup.md (3.1 KB) → 有概览
+  - 2025-09-20-init-project.md (2.8 KB) → 需生成概览
 
-echo "分层边界:"
-echo "  L0: >= $L1_BOUNDARY (最近 7 天)"
-echo "  L1: $L2_BOUNDARY ~ $L1_BOUNDARY (7-30 天)"
-echo "  L2: < $L2_BOUNDARY (30 天以上)"
+预计可释放: 10.1 KB
+概览文件将保留，可通过 /longmemory:get 查看
+原文将备份到 docs/memory/.archive/
+
+运行 /longmemory:compact clean 90 执行清理
 ```
 
-### 4. 识别需要降级的文件
+文件大小通过以下方式获取：
 
-遍历 index.json 的 entries，找出需要降级的文件：
+```bash
+# 获取文件大小（跨平台）
+wc -c < docs/memory/FILENAME.md 2>/dev/null || stat -f%z docs/memory/FILENAME.md 2>/dev/null || stat -c%s docs/memory/FILENAME.md 2>/dev/null
+```
 
-**L0 → L1 条件**：
-- `layer == "L0"`
-- `date < L1_BOUNDARY`
+"需生成概览"表示该文件尚无对应的 `.overview.md` 文件，执行 clean 时会先生成概览再删除原文。
 
-**L1 → L2 条件**：
-- `layer == "L1"`
-- `date < L2_BOUNDARY`
+如果没有可清理的文件，输出：
 
-**force 模式**：
-- 重新压缩所有 `layer == "L1"` 或 `layer == "L2"` 的文件
+```
+没有超过 90 天的记忆文件可以清理
 
-**dry-run 模式**：
-- 仅输出将要压缩的文件列表，不执行实际操作
+最旧的文件: 2026-01-15-auth-refactor.md (34 天前)
 
-### 5. L0 → L1 压缩规则
+下次检查时间建议: 2026-05-19 (距今 90 天)
+```
 
-对每个需要从 L0 降级到 L1 的文件：
+### 5. 清理模式（clean）
 
-1. **Read 读取原始内容**
+对每个需要清理的文件执行以下操作：
 
-2. **创建备份目录**：
+#### 5.1 确保概览文件存在
+
+检查该文件是否有对应的概览文件：`docs/memory/{文件名}.overview.md`（与 L2 文件同目录）。
+
+如果概览文件**不存在**，先生成概览：
+
+读取原文件内容，生成概览文件，格式与 save.md 生成的一致：
+
+```markdown
+### {文件名（去掉.md后缀）}
+**摘要**: {从原文件 Summary 部分提取前2-3句话}
+**关键决策**: {从原文件 Decisions & Rationale 提取每条决策的一句话总结，逗号分隔}
+**待办**: {未完成 TODO 数量} 项未完成
+**标签**: {从原文件提取的标签}
+```
+
+使用 Write 工具将概览写入 `docs/memory/{文件名}.overview.md`。
+
+#### 5.2 备份原文
+
+创建备份目录（如不存在）：
+
 ```bash
 mkdir -p docs/memory/.archive
 ```
 
-3. **备份原文件**：
+将原文件复制到备份目录：
+
 ```bash
-cp docs/memory/YYYY-MM-DD-brief-description.md docs/memory/.archive/
+cp docs/memory/{filename}.md docs/memory/.archive/{filename}.md
 ```
 
-4. **生成压缩版本**，保留以下内容：
+#### 5.3 删除原文
 
-   **完整保留**：
-   - Summary
-   - Decisions & Rationale
-   - Open Items / Follow-ups
-   - Learnings
+删除 `docs/memory/` 中的原始完整内容文件：
 
-   **压缩为简要列表**：
-   - Changes Made: 仅保留文件名列表，移除详细描述
-     ```markdown
-     ## Changes Made (简化)
-
-     - src/components/Auth.tsx
-     - src/api/login.ts
-     - tests/auth.test.ts
-     ```
-
-   - Technical Details: 仅保留关键配置变更，移除代码片段
-     ```markdown
-     ## Technical Details (关键配置)
-
-     - 启用 JWT 认证，过期时间 24h
-     - 数据库连接池大小: 10 → 20
-     ```
-
-   **简化**：
-   - Testing: 仅保留通过/失败状态
-     ```markdown
-     ## Testing
-
-     - 单元测试: 通过 (15/15)
-     - 集成测试: 通过 (3/3)
-     ```
-
-5. **添加标记**：
-   - 在标题后添加 `[L1 压缩版本]`
-   - 文件末尾添加：
-     ```markdown
-     ---
-
-     **原始完整版本**: docs/memory/.archive/YYYY-MM-DD-brief-description.md
-     ```
-
-6. **Write 写入压缩版本**，覆盖原文件
-
-7. **更新 index.json**：
-   - `layer`: "L0" → "L1"
-   - `compacted`: false → true
-   - `sizeBytes`: 更新为压缩后的大小
-
-### 6. L1 → L2 压缩规则
-
-对每个需要从 L1 降级到 L2 的文件：
-
-1. **Read 读取原始内容**（如果已是 L1 压缩版本，从 .archive/ 读取原始版本）
-
-2. **备份原文件**（如果尚未备份）
-
-3. **生成归档版本**，保留以下内容：
-
-   **保留**：
-   - Summary: 仅保留前 3 句话
-   - Decisions & Rationale: 仅保留最重要的 1-3 条决策
-   - Open Items / Follow-ups: 仅保留未完成的 TODOs（已完成的移除）
-
-   **移除**：
-   - Changes Made
-   - Technical Details
-   - Testing
-   - Learnings
-
-4. **添加标记**：
-   - 在标题后添加 `[L2 归档版本]`
-   - 文件末尾添加：
-     ```markdown
-     ---
-
-     **原始完整版本**: docs/memory/.archive/YYYY-MM-DD-brief-description.md
-     ```
-
-5. **Write 写入归档版本**，覆盖原文件
-
-6. **更新 index.json**：
-   - `layer`: "L1" → "L2"
-   - `compacted`: true
-   - `sizeBytes`: 更新为归档后的大小
-
-### 7. 更新索引统计
-
-重新计算 index.json 的 stats：
-
-```json
-{
-  "stats": {
-    "total": 总条目数,
-    "byLayer": {
-      "L0": L0 层计数,
-      "L1": L1 层计数,
-      "L2": L2 层计数
-    },
-    "totalSizeBytes": 所有文件大小总和
-  },
-  "lastUpdated": "当前时间戳"
-}
+```bash
+rm docs/memory/{filename}.md
 ```
 
-使用 Write 工具覆盖写入更新后的 index.json。
+#### 5.4 更新 index.json
 
-### 8. 输出压缩报告
+读取 `docs/memory/index.json`，找到对应的 entry，更新以下字段：
+- `sizeBytes`: 置为 `0`（原文已删除）
+- `hasOverview`: 置为 `true`
+- `archived`: 置为 `true`
 
-**正常模式**：
+保留其他字段（`file`、`date`、`title`、`tags` 等）。
+
+使用 Write 工具写入更新后的 index.json。
+
+#### 5.5 更新 catalog.md
+
+读取 `docs/memory/catalog.md`，在 Entries 区找到对应条目，在其末尾追加 `[已归档]` 标记：
+
+原：`- 2025-11-10 | db-migration | 数据库迁移 | ...`
+改：`- 2025-11-10 | db-migration | 数据库迁移 | ... [已归档]`
+
+使用 Write 工具写入更新后的 catalog.md。
+
+### 6. 清理完成输出
 
 ```
-Memory 压缩完成
+✓ 磁盘清理完成
 
-L0 → L1: N 个文件
-L1 → L2: M 个文件
-节省空间: XX KB
+已清理: 3 个文件
+释放空间: 10.1 KB
+原文已备份到 docs/memory/.archive/
 
-当前分布: L0: X | L1: Y | L2: Z (共 T 条)
-原始文件已备份到 docs/memory/.archive/
+保留的概览文件可通过 /longmemory:get 查看
+使用 /longmemory:compact restore <filename> 恢复原文
 ```
 
-**dry-run 模式**：
+如果处理过程中有文件生成了新概览，额外提示：
 
 ```
-[预览] 将执行以下压缩操作:
-
-L0 → L1 (N 个文件):
-  - 2026-01-15-auth-refactor.md (3.2 KB → ~1.5 KB)
-  - 2026-01-20-api-optimization.md (4.1 KB → ~2.0 KB)
-
-L1 → L2 (M 个文件):
-  - 2025-12-10-database-migration.md (2.5 KB → ~0.8 KB)
-
-预计节省空间: XX KB
-
-运行 /longmemory:compact 执行压缩
+新生成概览: 1 个
+  - 2025-09-20-init-project.md.overview.md
 ```
 
-### 9. Restore 模式
+### 7. 恢复模式（restore）
 
 当参数为 `restore <filename>` 时：
 
-1. **检查备份文件是否存在**：
+**步骤 1**：检查备份文件是否存在：
+
 ```bash
-if [ ! -f docs/memory/.archive/<filename> ]; then
-  echo "错误: 备份文件不存在"
-  exit 1
-fi
+ls docs/memory/.archive/{filename} 2>/dev/null
 ```
 
-2. **恢复文件**：
+如果不存在，输出：
+
+```
+错误: 备份文件 "{filename}" 不存在
+
+已备份的文件列表:
+  - 2025-11-10-db-migration.md
+  - 2025-10-05-auth-setup.md
+  ...
+
+使用 /longmemory:compact dry-run 查看可用备份
+```
+
+**步骤 2**：恢复文件：
+
 ```bash
-cp docs/memory/.archive/<filename> docs/memory/
+cp docs/memory/.archive/{filename} docs/memory/{filename}
 ```
 
-3. **更新 index.json**：
-   - 找到对应的 entry
-   - `layer`: 恢复为 "L0"
-   - `compacted`: 恢复为 false
-   - `sizeBytes`: 更新为原始文件大小
+**步骤 3**：更新 index.json：
+- 找到对应的 entry
+- `sizeBytes`: 更新为恢复后文件的实际大小
+- `archived`: 置为 `false`
 
-4. **输出确认**：
+**步骤 4**：更新 catalog.md：
+- 找到对应条目，移除 `[已归档]` 标记
+
+**步骤 5**：输出确认：
+
 ```
-✓ 已从备份恢复: <filename>
-✓ 索引已更新，文件恢复为 L0 层
+✓ 已从备份恢复: {filename}
+  位置: docs/memory/{filename}
+  大小: 4.2 KB
+✓ 索引已更新，[已归档] 标记已移除
 ```
 
 ## 错误处理
 
-- 如果 index.json 不存在且无法扫描文件，提示用户先运行 `/longmemory:save`
-- 如果备份目录创建失败，中止压缩操作
-- 如果文件读取失败，跳过该文件并记录错误
-- 如果索引更新失败，保留原索引文件（创建 .backup）
+- 如果 `docs/memory/` 目录不存在，提示用户先运行 `/longmemory:save`
+- 如果 `index.json` 不存在，跳过 index 更新步骤（只做文件操作）
+- 如果备份目录创建失败，终止清理操作并输出错误信息
+- 如果某个文件删除失败，记录错误并继续处理其他文件
+- 如果 index.json 更新失败，保留原 index.json，输出警告提示手动检查
 
-## 完成标准
+## 安全注意事项
 
-- [x] 正确识别需要降级的文件
-- [x] 原始文件已备份到 .archive/
-- [x] 压缩版本正确生成，符合压缩规则
-- [x] index.json 已更新，layer 和 stats 正确
-- [x] 用户收到压缩报告
+- 本命令会**永久删除** `docs/memory/` 中的原文内容（原文备份在 `.archive/`）
+- 执行 `clean` 前，建议先运行 `dry-run` 确认范围
+- `.archive/` 目录中的备份不会被自动删除，可随时通过 `restore` 恢复
+- 如果需要彻底清除备份，用户需要手动删除 `.archive/` 目录中的文件
 
-## 压缩示例
+## 跨平台注意事项
 
-**L0 原始文件** (3.5 KB):
-```markdown
-# 实现用户认证模块
-
-**日期**: 2026-01-15
-**标签**: auth, jwt, security
-
-## Summary
-实现了基于 JWT 的用户认证系统，包括登录、注册、token 刷新功能。
-
-## Changes Made
-- src/components/Auth.tsx:1-150 - 创建认证组件，包含登录表单和状态管理
-- src/api/login.ts:1-80 - 实现登录 API 调用和 token 存储
-- src/utils/jwt.ts:1-50 - JWT token 解析和验证工具
-- tests/auth.test.ts:1-200 - 完整的认证流程测试
-
-## Decisions & Rationale
-### 使用 JWT 而非 Session
-- **决策**: 采用 JWT token 进行认证
-- **理由**: 支持分布式部署，减少服务器状态管理
-
-### Token 过期时间设置
-- **决策**: Access token 24h，Refresh token 30 天
-- **理由**: 平衡安全性和用户体验
-
-## Technical Details
-- JWT 库: jsonwebtoken v9.0.0
-- Token 存储: localStorage (考虑后续迁移到 httpOnly cookie)
-- 密钥管理: 环境变量 JWT_SECRET
-- 加密算法: HS256
-
-## Testing
-- 单元测试: 15/15 通过
-- 集成测试: 3/3 通过
-- 测试命令: npm test -- auth
-
-## Open Items / Follow-ups
-- [ ] 迁移 token 存储到 httpOnly cookie
-- [ ] 添加 refresh token 自动刷新逻辑
-- [x] 完成登录表单验证
-
-## Learnings
-- JWT payload 不应包含敏感信息
-- token 刷新需要考虑并发请求场景
-```
-
-**L1 压缩版本** (1.8 KB):
-```markdown
-# 实现用户认证模块 [L1 压缩版本]
-
-**日期**: 2026-01-15
-**标签**: auth, jwt, security
-
-## Summary
-实现了基于 JWT 的用户认证系统，包括登录、注册、token 刷新功能。
-
-## Changes Made (简化)
-- src/components/Auth.tsx
-- src/api/login.ts
-- src/utils/jwt.ts
-- tests/auth.test.ts
-
-## Decisions & Rationale
-### 使用 JWT 而非 Session
-- **决策**: 采用 JWT token 进行认证
-- **理由**: 支持分布式部署，减少服务器状态管理
-
-### Token 过期时间设置
-- **决策**: Access token 24h，Refresh token 30 天
-- **理由**: 平衡安全性和用户体验
-
-## Technical Details (关键配置)
-- JWT 库: jsonwebtoken v9.0.0
-- Token 过期: Access 24h, Refresh 30d
-- 加密算法: HS256
-
-## Testing
-- 单元测试: 通过 (15/15)
-- 集成测试: 通过 (3/3)
-
-## Open Items / Follow-ups
-- [ ] 迁移 token 存储到 httpOnly cookie
-- [ ] 添加 refresh token 自动刷新逻辑
-
-## Learnings
-- JWT payload 不应包含敏感信息
-- token 刷新需要考虑并发请求场景
-
----
-
-**原始完整版本**: docs/memory/.archive/2026-01-15-auth-implementation.md
-```
-
-**L2 归档版本** (0.6 KB):
-```markdown
-# 实现用户认证模块 [L2 归档版本]
-
-**日期**: 2026-01-15
-**标签**: auth, jwt, security
-
-## Summary
-实现了基于 JWT 的用户认证系统，包括登录、注册、token 刷新功能。
-
-## Decisions & Rationale
-### 使用 JWT 而非 Session
-- **决策**: 采用 JWT token 进行认证
-- **理由**: 支持分布式部署，减少服务器状态管理
-
-## Open Items / Follow-ups
-- [ ] 迁移 token 存储到 httpOnly cookie
-- [ ] 添加 refresh token 自动刷新逻辑
-
----
-
-**原始完整版本**: docs/memory/.archive/2026-01-15-auth-implementation.md
-```
+- 文件复制：优先使用 Bash `cp` 命令，Windows 下使用 `copy`
+- 文件删除：优先使用 Bash `rm` 命令，Windows 下使用 `del`
+- 目录创建：使用 `mkdir -p` 或 Windows 下 `New-Item -ItemType Directory -Force`
+- 文件大小：跨平台获取方式见步骤 4 中的示例

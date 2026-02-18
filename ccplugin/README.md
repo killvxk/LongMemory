@@ -1,52 +1,59 @@
 # LongMemory Plugin
 
-分层记忆系统 for Claude Code - 解决 memory 文件膨胀、上下文爆炸、检索低效问题。
+文件系统式记忆系统 for Claude Code — 检索粒度分层索引、全局经验库、关键词触发召回。
 
-## 包含的命令
+## 命令
 
 | 命令 | 说明 |
 |------|------|
-| `save` | 保存当前工作记忆，自动更新索引 |
-| `list` | 列出记忆索引，显示分层状态 |
-| `get` | 获取指定记忆，支持 --original 查看原文 |
-| `search` | 三维搜索（scope/time/project），索引加速 |
-| `all` | 全量读取，智能容量保护 |
-| `compact` | 压缩归档，支持 dry-run/force/restore |
+| `save` | 保存工作记忆，更新 L0 目录/L1 概览/index |
+| `list` | 列出 catalog.md 目录索引，支持领域和时间过滤 |
+| `get` | 获取记忆，默认返回 L1 概览，`--full` 返回完整内容 |
+| `search` | L0→L1→L2 渐进式检索，支持 `--global` 全局搜索 |
+| `all` | 分层加载：L0 目录 / L1 概览 / L2 完整内容 |
+| `compact` | 可选磁盘清理，删除旧原文保留概览 |
+| `learn` | 从会话提炼通用经验，存入全局经验库 |
+| `recall` | 手动查询全局经验库 |
+
+## 检索粒度层（L0/L1/L2）
+
+| 层级 | 类比 | 内容 | Token 消耗 |
+|------|------|------|-----------|
+| L0 | `ls` | catalog.md 目录索引（一行一条） | ~14 tokens/条 |
+| L1 | `head` | .overview.md 概览（摘要+决策+待办） | ~50 tokens/条 |
+| L2 | `cat` | 完整 .md 原文 | 原始大小 |
+
+检索流程：L0 定位 → L1 确认 → L2 按需读取
 
 ## Hook 说明
 
-### Stop Hook: auto-save-memory
-
-在会话结束时自动触发，检测 git 变更并提示 Claude 保存工作记忆。
-
-**触发条件:**
-- 检测到 git 仓库中有未提交的变更
-- 非 hook 递归调用（防止无限循环）
-
-**执行逻辑:**
-1. 收集 git 变更上下文（status/diff/log）
-2. 生成 memory 文件到 `docs/memory/YYYY-MM-DD-description.md`
-3. 更新 `docs/memory/index.json` 索引
-
-**跨平台支持:**
-- Unix/Linux/macOS: `scripts/auto-save-memory.sh`
-- Windows: `scripts/auto-save-memory.ps1`
+| Hook | 脚本 | 功能 |
+|------|------|------|
+| Stop | auto-save-memory | 会话结束时检测 git 变更，触发保存 |
+| SessionStart | session-start | 加载全局经验库领域概览 |
+| UserPromptSubmit | keyword-trigger | 检测触发词，自动注入匹配经验 |
 
 ## 目录结构
 
 ```
 ccplugin/
-├── commands/          # 命令实现
-│   ├── save.md
-│   ├── list.md
-│   ├── get.md
-│   ├── search.md
-│   ├── all.md
-│   └── compact.md
-├── scripts/           # Hook 脚本
-│   ├── auto-save-memory.sh
-│   └── auto-save-memory.ps1
-└── claude-plugin.json # 插件配置
+├── commands/
+│   ├── save.md        # 保存（L2 + overview + catalog + domains + index）
+│   ├── list.md        # L0 目录列出
+│   ├── get.md         # L1 概览 / L2 全文获取
+│   ├── search.md      # 渐进式检索
+│   ├── all.md         # 分层全量加载
+│   ├── compact.md     # 可选磁盘清理
+│   ├── learn.md       # 全局经验提炼
+│   └── recall.md      # 全局经验查询
+├── hooks/
+│   └── hooks.json     # Hook 注册（Stop/SessionStart/UserPromptSubmit）
+├── scripts/
+│   ├── auto-save-memory.sh/.ps1    # Stop hook
+│   ├── session-start.sh/.ps1       # SessionStart hook
+│   └── keyword-trigger.sh/.ps1     # UserPromptSubmit hook
+└── .claude-plugin/
+    └── plugin.json
 ```
 
 ## 详细文档
