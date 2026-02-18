@@ -2,12 +2,13 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
-## v2.1.3 — Bash/PowerShell 共存 + 命令化
+## v2.1.3 — Bash/PowerShell 共存 + Hook 精简
 
 - 恢复 Bash + PowerShell 双脚本架构（`bash ... || pwsh ...` fallback）
-- 移除 SessionStart hook，改为 `/longmemory:start` 命令手动加载
+- SessionStart hook 仅在新会话启动时触发（matcher: `startup`），使用 `additionalContext` 注入上下文
 - 移除 UserPromptSubmit hook（keyword-trigger 暂不支持）
-- 保留 Stop 和 PreCompact 两个 hook
+- 新增 `/longmemory:start` 命令作为手动加载全局经验库的备选方式
+- Hook 输出格式对齐官方文档规范（移除 PreCompact 多余 decision 字段）
 
 ## v2.0 新特性
 
@@ -106,7 +107,7 @@ L0 定位 → L1 确认 → L2 按需读取
 
 ## 全局经验库
 
-跨项目的通用知识存储，通过 `/longmemory:start` 命令手动加载。
+跨项目的通用知识存储。新会话启动时通过 SessionStart hook 自动加载概览，也可手动运行 `/longmemory:start`。
 
 ### 结构
 
@@ -136,7 +137,8 @@ L0 定位 → L1 确认 → L2 按需读取
 
 ### 加载经验库
 
-会话开始时运行 `/longmemory:start`，手动加载全局经验库概览和技术栈信息。
+- **自动**: 新会话启动时 SessionStart hook 自动加载领域概览到 Claude 上下文
+- **手动**: 运行 `/longmemory:start` 加载全局经验库概览和技术栈信息
 
 ## 项目记忆文件布局
 
@@ -175,10 +177,11 @@ L0 定位 → L1 确认 → L2 按需读取
 
 ## Hook 系统
 
-| Hook | 触发时机 | 功能 | Timeout |
-|------|---------|------|---------|
-| Stop | 会话结束 | 检测 git 变更，触发 `/longmemory:save` | 10s |
-| PreCompact | 上下文压缩前 | 检测 git 变更，建议先保存记忆 | 10s |
+| Hook | 触发时机 | Matcher | 功能 | Timeout |
+|------|---------|---------|------|---------|
+| Stop | 会话结束 | — | 检测 git 变更，触发 `/longmemory:save` | 10s |
+| SessionStart | 会话启动 | `startup` | 加载全局经验库领域概览到 Claude 上下文 | 10s |
+| PreCompact | 上下文压缩前 | — | 检测 git 变更，建议先保存记忆 | 10s |
 
 平台: Bash (优先) + PowerShell (fallback)
 

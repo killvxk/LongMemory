@@ -6,7 +6,7 @@
 
 | 命令 | 说明 |
 |------|------|
-| `start` | 加载全局经验库概览 + 技术栈检测（替代 SessionStart hook） |
+| `start` | 手动加载全局经验库概览 + 技术栈检测（SessionStart hook 备选） |
 | `save` | 保存工作记忆，更新 L0 目录/L1 概览/index |
 | `list` | 列出 catalog.md 目录索引，支持领域和时间过滤 |
 | `get` | 获取记忆，默认返回 L1 概览，`--full` 返回完整内容 |
@@ -31,6 +31,7 @@
 | Hook | 脚本 | 功能 | Timeout |
 |------|------|------|---------|
 | Stop | auto-save-memory | 会话结束时检测 git 变更，触发保存 | 10s |
+| SessionStart | session-start | 新会话启动时加载全局经验库概览（matcher: startup） | 10s |
 | PreCompact | pre-compact | 压缩前检测 git 变更，建议保存记忆 | 10s |
 
 平台: Bash (优先) + PowerShell (fallback)
@@ -40,7 +41,7 @@
 ```
 ccplugin/
 ├── commands/
-│   ├── start.md      # 加载全局经验库（替代 SessionStart hook）
+│   ├── start.md      # 手动加载全局经验库（SessionStart hook 备选）
 │   ├── save.md       # 保存（L2 + overview + catalog + domains + index）
 │   ├── list.md       # L0 目录列出
 │   ├── get.md        # L1 概览 / L2 全文获取
@@ -50,10 +51,12 @@ ccplugin/
 │   ├── learn.md      # 全局经验提炼
 │   └── recall.md     # 全局经验查询
 ├── hooks/
-│   └── hooks.json    # Hook 注册（Stop/PreCompact）
+│   └── hooks.json    # Hook 注册（Stop/SessionStart/PreCompact）
 ├── scripts/
 │   ├── auto-save-memory.sh     # Stop hook (Bash)
 │   ├── auto-save-memory.ps1    # Stop hook (PowerShell)
+│   ├── session-start.sh        # SessionStart hook (Bash)
+│   ├── session-start.ps1       # SessionStart hook (PowerShell)
 │   ├── pre-compact.sh          # PreCompact hook (Bash)
 │   └── pre-compact.ps1         # PreCompact hook (PowerShell)
 └── .claude-plugin/

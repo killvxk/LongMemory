@@ -1,5 +1,5 @@
 {
-  "description": "LongMemory hooks — auto-save on stop, memory backup before compaction",
+  "description": "LongMemory hooks — auto-save on stop, experience library on startup, memory backup before compaction",
   "hooks": {
     "Stop": [
       {
@@ -9,6 +9,19 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-save-memory.sh\" 2>/dev/null || pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-save-memory.ps1\"",
             "timeout": 10,
             "statusMessage": "LongMemory: 检测 git 变更..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh\" 2>/dev/null || pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.ps1\"",
+            "timeout": 10,
+            "statusMessage": "LongMemory: 加载全局经验库..."
           }
         ]
       }
