@@ -72,7 +72,7 @@ fi
 DOMAIN_SUMMARY=""
 TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
 if [ -f "$TRIGGERS_FILE" ]; then
-    DOMAIN_SUMMARY=$(jq -r '.domains | to_entries[] | "\(.key)(\(.value.keywords | length)个关键词)"' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r' | tr '\n' ', ' | sed 's/, $//')
+    DOMAIN_SUMMARY=$(jq -r '.domains | to_entries[] | "\(.key)(\(.value.keywords | length)个关键词)"' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r' | paste -sd ', ' -)
 fi
 
 # 如果 triggers.json 不可用，从 catalog.md 的领域概览表格解析领域行
