@@ -17,9 +17,8 @@ fi
 
 if [ "$HAS_CHANGES" = false ]; then exit 0; fi
 
-# 不阻塞压缩，仅注入建议性系统消息
+# 不阻塞压缩，仅注入建议性系统消息（systemMessage 为通用字段，显示警告给用户）
 jq -n '{
-  "decision": "allow",
   "systemMessage": "[LongMemory] 检测到未提交的 git 变更。建议在压缩前运行 /longmemory:save 保存当前工作记忆，避免上下文压缩后丢失关键信息。"
 }'
 exit 0
