@@ -1,38 +1,14 @@
 {
-  "description": "LongMemory hooks — auto-save on stop, experience injection on session start and keyword match, memory backup before compaction",
+  "description": "LongMemory hooks — auto-save on stop, memory backup before compaction",
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-save-memory.ps1\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-save-memory.sh\" 2>/dev/null || pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-save-memory.ps1\"",
             "timeout": 10,
             "statusMessage": "LongMemory: 检测 git 变更..."
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/session-start.ps1\"",
-            "timeout": 10,
-            "statusMessage": "LongMemory: 加载全局经验库..."
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/keyword-trigger.ps1\"",
-            "timeout": 5,
-            "statusMessage": "LongMemory: 匹配关键词..."
           }
         ]
       }
@@ -42,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact.ps1\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact.sh\" 2>/dev/null || pwsh -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact.ps1\"",
             "timeout": 10,
             "statusMessage": "LongMemory: 压缩前备份记忆..."
           }

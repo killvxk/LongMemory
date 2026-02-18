@@ -1,18 +1,18 @@
 # LongMemory - 文件系统式记忆系统 for Claude Code
 
-解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库 + 关键词自动召回实现。
+解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
-## v3.0 — 纯 Windows 版本
+## v2.1.3 — Bash/PowerShell 共存 + 命令化
 
-- 移除 Bash 脚本，所有 Hook 直接调用 PowerShell
-- 消除 Windows 上 `bash ... || pwsh ...` fallback 导致的启动错误
+- 恢复 Bash + PowerShell 双脚本架构（`bash ... || pwsh ...` fallback）
+- 移除 SessionStart hook，改为 `/longmemory:start` 命令手动加载
+- 移除 UserPromptSubmit hook（keyword-trigger 暂不支持）
+- 保留 Stop 和 PreCompact 两个 hook
 
 ## v2.0 新特性
 
 - **检索粒度层**: L0 目录索引 → L1 概览大纲 → L2 完整原文，渐进加载
 - **全局经验库**: 跨项目通用知识存储，按领域分类
-- **关键词触发召回**: 对话中检测到触发词时自动注入相关经验
-- **SessionStart 概览**: 会话开始时自动加载全局经验库领域概览
 
 ## 安装
 
@@ -28,6 +28,7 @@
 
 | 命令 | 说明 |
 |------|------|
+| `/longmemory:start` | 加载全局经验库概览 + 技术栈检测 |
 | `/longmemory:save` | 保存工作记忆，更新 catalog/overview/index |
 | `/longmemory:list` | 列出 L0 目录索引，支持 `domain:` 和 `time:` 过滤 |
 | `/longmemory:get <id>` | 获取记忆，默认 L1 概览，`--full` 完整内容 |
@@ -40,6 +41,9 @@
 ### 命令示例
 
 ```bash
+# 会话开始时加载全局经验库
+/longmemory:start
+
 # 保存当前工作记忆
 /longmemory:save
 
@@ -102,7 +106,7 @@ L0 定位 → L1 确认 → L2 按需读取
 
 ## 全局经验库
 
-跨项目的通用知识存储，自动触发召回。
+跨项目的通用知识存储，通过 `/longmemory:start` 命令手动加载。
 
 ### 结构
 
@@ -130,11 +134,9 @@ L0 定位 → L1 确认 → L2 按需读取
 **来源**: 2026-02-14 jwt-impl 项目
 ```
 
-### 自动召回
+### 加载经验库
 
-- **SessionStart**: 会话开始时加载领域概览 + 技术栈检测
-- **UserPromptSubmit**: 用户消息中检测触发词 → 自动注入匹配经验
-- 可通过 `config.json` 的 `autoRecall` 字段开关
+会话开始时运行 `/longmemory:start`，手动加载全局经验库概览和技术栈信息。
 
 ## 项目记忆文件布局
 
@@ -176,11 +178,9 @@ L0 定位 → L1 确认 → L2 按需读取
 | Hook | 触发时机 | 功能 | Timeout |
 |------|---------|------|---------|
 | Stop | 会话结束 | 检测 git 变更，触发 `/longmemory:save` | 10s |
-| SessionStart | 会话开始 | 加载全局经验库概览到 systemMessage | 8s |
-| UserPromptSubmit | 用户发消息 | 匹配 triggers.json，注入相关经验 | 5s |
 | PreCompact | 上下文压缩前 | 检测 git 变更，建议先保存记忆 | 10s |
 
-平台: Windows (PowerShell)
+平台: Bash (优先) + PowerShell (fallback)
 
 ## 从 v1.0 迁移
 
@@ -188,15 +188,6 @@ v2.0 完全向后兼容。首次运行 `/longmemory:save` 时：
 - 自动检测 v1.0 的 index.json 并迁移到 v2 schema
 - 自动生成 catalog.md 和 domains.md
 - 旧的 L0/L1/L2 时间分层标记会被移除
-
-## 从 v2.x 迁移到 v3.0
-
-v3.0 为纯 Windows (PowerShell) 版本，移除了所有 Bash 脚本。
-
-变更内容：
-- 移除所有 `.sh` 脚本，仅保留 `.ps1` 版本
-- Hook 命令直接调用 `pwsh`，不再使用 `bash ... || pwsh ...` fallback
-- 消除 Windows 上 bash fallback 导致的 SessionStart hook error
 
 ## License
 
