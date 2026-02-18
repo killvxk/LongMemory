@@ -168,11 +168,12 @@ L0 定位 → L1 确认 → L2 按需读取
 
 ## Hook 系统
 
-| Hook | 触发时机 | 功能 |
-|------|---------|------|
-| Stop | 会话结束 | 检测 git 变更，触发 `/longmemory:save` |
-| SessionStart | 会话开始 | 加载全局经验库概览到 systemMessage |
-| UserPromptSubmit | 用户发消息 | 匹配 triggers.json，注入相关经验 |
+| Hook | 触发时机 | 功能 | Timeout |
+|------|---------|------|---------|
+| Stop | 会话结束 | 检测 git 变更，触发 `/longmemory:save` | 10s |
+| SessionStart | 会话开始 | 加载全局经验库概览到 systemMessage | 8s |
+| UserPromptSubmit | 用户发消息 | 匹配 triggers.json，注入相关经验 | 5s |
+| PreCompact | 上下文压缩前 | 检测 git 变更，建议先保存记忆 | 10s |
 
 跨平台支持: Bash (Unix/macOS) + PowerShell (Windows)
 
@@ -182,6 +183,16 @@ v2.0 完全向后兼容。首次运行 `/longmemory:save` 时：
 - 自动检测 v1.0 的 index.json 并迁移到 v2 schema
 - 自动生成 catalog.md 和 domains.md
 - 旧的 L0/L1/L2 时间分层标记会被移除
+
+## 从 v2.0 迁移到 v2.1.0
+
+v2.1.0 完全向后兼容，无需手动操作。
+
+变更内容：
+- 新增 PreCompact hook：上下文压缩前自动检查并提示保存记忆
+- 所有 hook 新增 timeout 限制（Stop: 10s / SessionStart: 8s / UserPromptSubmit: 5s / PreCompact: 10s）
+- 修复 session-start 脚本中 catalog.md 领域解析的 Bug（现在正确从 triggers.json 读取领域信息）
+- marketplace.json 和 plugin.json 元数据字段补全
 
 ## License
 

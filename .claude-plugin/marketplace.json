@@ -1,25 +1,27 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "longmemory-plugins",
   "owner": {
     "name": "killvxk",
     "email": ""
   },
   "metadata": {
-    "description": "Layered memory system for Claude Code — auto-indexing, tiered compression, smart archiving",
-    "version": "1.0.0"
+    "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing (L0/L1/L2), global experience library, and keyword-triggered recall",
+    "version": "2.1.0"
   },
   "plugins": [
     {
       "name": "longmemory",
-      "description": "Layered memory system for Claude Code with auto-indexing, tiered compression (L0/L1/L2), and smart archiving to solve memory bloat and context explosion",
-      "version": "1.0.0",
+      "description": "Filesystem-style memory system for Claude Code with retrieval-layered indexing (L0 catalog / L1 overview / L2 full content), cross-project global experience library, and automatic keyword-triggered recall",
+      "version": "2.1.0",
       "source": "./ccplugin",
       "category": "productivity",
       "author": { "name": "killvxk" },
       "homepage": "https://github.com/killvxk/LongMemory",
       "repository": "https://github.com/killvxk/LongMemory",
       "license": "MIT",
-      "keywords": ["memory", "layered", "compact", "archive", "index"]
+      "keywords": ["memory", "recall", "experience", "global", "keyword-trigger", "layered", "index"],
+      "tags": ["memory", "productivity", "context", "knowledge-base"]
     }
   ]
 }

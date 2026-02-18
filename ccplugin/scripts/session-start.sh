@@ -51,22 +51,19 @@ if [ "$AUTO_RECALL" != "true" ]; then exit 0; fi
 # 读取目录文件
 if [ ! -f "$CATALOG_FILE" ]; then exit 0; fi
 
-# 从 catalog.md 提取领域信息（格式: ## domain-name (N条) 或类似格式）
+# 从 triggers.json 读取领域信息（主要来源，精确可靠）
 DOMAIN_SUMMARY=""
-while IFS= read -r line; do
-    if echo "$line" | grep -qE '^##\s+'; then
-        DOMAIN_SUMMARY="${DOMAIN_SUMMARY}${line#\#\# }, "
-    fi
-done < "$CATALOG_FILE"
-# 去掉末尾的逗号和空格
-DOMAIN_SUMMARY="${DOMAIN_SUMMARY%, }"
+TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
+if [ -f "$TRIGGERS_FILE" ]; then
+    DOMAIN_SUMMARY=$(jq -r '.domains | to_entries[] | "\(.key)(\(.value.keywords | length)个关键词)"' "$TRIGGERS_FILE" 2>/dev/null | tr '\n' ', ' | sed 's/, $//')
+fi
 
-# 如果没有从 catalog 提取到领域信息，尝试从 triggers.json 读取
-if [ -z "$DOMAIN_SUMMARY" ]; then
-    TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
-    if [ -f "$TRIGGERS_FILE" ]; then
-        DOMAIN_SUMMARY=$(jq -r '.domains | to_entries[] | "\(.key)(\(.value.keywords | length)个关键词)" ' "$TRIGGERS_FILE" 2>/dev/null | tr '\n' ', ' | sed 's/, $//')
-    fi
+# 如果 triggers.json 不可用，从 catalog.md 的领域概览表格解析领域行
+# 表格行格式: | auth | 5 | jwt, token |
+if [ -z "$DOMAIN_SUMMARY" ] && [ -f "$CATALOG_FILE" ]; then
+    DOMAIN_SUMMARY=$(grep -E '^\|[^|]+\|[[:space:]]*[0-9]+[[:space:]]*\|' "$CATALOG_FILE" 2>/dev/null | \
+        awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 != "领域" && $2 != "" && $2 != "---") printf "%s, ", $2}' | \
+        sed 's/, $//')
 fi
 
 # 检测项目技术栈

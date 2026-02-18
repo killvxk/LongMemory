@@ -27,11 +27,12 @@
 
 ## Hook 说明
 
-| Hook | 脚本 | 功能 |
-|------|------|------|
-| Stop | auto-save-memory | 会话结束时检测 git 变更，触发保存 |
-| SessionStart | session-start | 加载全局经验库领域概览 |
-| UserPromptSubmit | keyword-trigger | 检测触发词，自动注入匹配经验 |
+| Hook | 脚本 | 功能 | Timeout |
+|------|------|------|---------|
+| Stop | auto-save-memory | 会话结束时检测 git 变更，触发保存 | 10s |
+| SessionStart | session-start | 加载全局经验库领域概览 | 8s |
+| UserPromptSubmit | keyword-trigger | 检测触发词，自动注入匹配经验 | 5s |
+| PreCompact | pre-compact | 压缩前检测 git 变更，建议保存记忆 | 10s |
 
 ## 目录结构
 
@@ -51,7 +52,8 @@ ccplugin/
 ├── scripts/
 │   ├── auto-save-memory.sh/.ps1    # Stop hook
 │   ├── session-start.sh/.ps1       # SessionStart hook
-│   └── keyword-trigger.sh/.ps1     # UserPromptSubmit hook
+│   ├── keyword-trigger.sh/.ps1     # UserPromptSubmit hook
+│   └── pre-compact.sh/.ps1         # PreCompact hook
 └── .claude-plugin/
     └── plugin.json
 ```

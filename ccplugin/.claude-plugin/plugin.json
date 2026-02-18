@@ -1,5 +1,13 @@
 {
   "name": "longmemory",
-  "version": "2.0.0",
-  "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing, global experience library, keyword-triggered recall"
+  "version": "2.1.0",
+  "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing, global experience library, keyword-triggered recall",
+  "author": {
+    "name": "killvxk",
+    "url": "https://github.com/killvxk"
+  },
+  "homepage": "https://github.com/killvxk/LongMemory",
+  "repository": "https://github.com/killvxk/LongMemory",
+  "license": "MIT",
+  "keywords": ["memory", "recall", "experience", "global", "layered", "index", "keyword-trigger"]
 }

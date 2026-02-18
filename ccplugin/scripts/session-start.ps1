@@ -76,39 +76,43 @@ try {
         exit 0
     }
 
-    # 读取 catalog.md 提取领域信息
+    # 从 triggers.json 读取领域信息（主要来源，精确可靠）
     $domainSummary = ""
-    if (Test-Path $catalogFile) {
-        $catalogContent = Get-Content $catalogFile -Encoding UTF8
-        $domainParts = @()
-        foreach ($line in $catalogContent) {
-            if ($line -match '^##\s+(.+)$') {
-                $domainParts += $Matches[1].Trim()
+    $triggersFile = Join-Path $globalMemoryPath "triggers.json"
+    if (Test-Path $triggersFile) {
+        try {
+            $triggers = Get-Content $triggersFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($triggers.PSObject.Properties['domains']) {
+                $domainParts = @()
+                foreach ($domain in $triggers.domains.PSObject.Properties) {
+                    $kwCount = if ($domain.Value.PSObject.Properties['keywords']) {
+                        $domain.Value.keywords.Count
+                    } else { 0 }
+                    $domainParts += "$($domain.Name)($($kwCount)个关键词)"
+                }
+                $domainSummary = $domainParts -join ", "
             }
-        }
-        if ($domainParts.Count -gt 0) {
-            $domainSummary = $domainParts -join ", "
-        }
+        } catch {}
     }
 
-    # 如果 catalog 没有领域信息，尝试从 triggers.json 读取
-    if ([string]::IsNullOrWhiteSpace($domainSummary)) {
-        $triggersFile = Join-Path $globalMemoryPath "triggers.json"
-        if (Test-Path $triggersFile) {
-            try {
-                $triggers = Get-Content $triggersFile -Raw -Encoding UTF8 | ConvertFrom-Json
-                if ($triggers.PSObject.Properties['domains']) {
-                    $domainParts = @()
-                    foreach ($domain in $triggers.domains.PSObject.Properties) {
-                        $kwCount = if ($domain.Value.PSObject.Properties['keywords']) {
-                            $domain.Value.keywords.Count
-                        } else { 0 }
-                        $domainParts += "$($domain.Name)($($kwCount)个关键词)"
+    # 如果 triggers.json 不可用，从 catalog.md 的领域概览表格解析领域行
+    # 表格行格式: | auth | 5 | jwt, token |
+    if ([string]::IsNullOrWhiteSpace($domainSummary) -and (Test-Path $catalogFile)) {
+        try {
+            $catalogContent = Get-Content $catalogFile -Encoding UTF8
+            $domainParts = @()
+            foreach ($line in $catalogContent) {
+                if ($line -match '^\|\s*([^|]+?)\s*\|\s*(\d+)\s*\|') {
+                    $domainName = $Matches[1].Trim()
+                    if ($domainName -ne "领域" -and $domainName -ne "" -and $domainName -ne "---") {
+                        $domainParts += $domainName
                     }
-                    $domainSummary = $domainParts -join ", "
                 }
-            } catch {}
-        }
+            }
+            if ($domainParts.Count -gt 0) {
+                $domainSummary = $domainParts -join ", "
+            }
+        } catch {}
     }
 
     # 检测技术栈
