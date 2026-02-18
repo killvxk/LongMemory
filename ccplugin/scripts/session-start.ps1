@@ -76,21 +76,32 @@ try {
         exit 0
     }
 
-    # 从 triggers.json 读取领域信息
+    # 从 triggers.json 读取领域信息和关键词明细
     $domainSummary = ""
+    $keywordDetail = ""
     $triggersFile = Join-Path $globalMemoryPath "triggers.json"
     if (Test-Path $triggersFile) {
         try {
             $triggers = Get-Content $triggersFile -Raw -Encoding UTF8 | ConvertFrom-Json
             if ($triggers.PSObject.Properties['domains']) {
                 $domainParts = @()
+                $kwDetailParts = @()
                 foreach ($domain in $triggers.domains.PSObject.Properties) {
                     $kwCount = if ($domain.Value.PSObject.Properties['keywords']) {
                         $domain.Value.keywords.Count
                     } else { 0 }
                     $domainParts += "$($domain.Name)($($kwCount)个关键词)"
+
+                    # 提取每个领域的关键词列表
+                    if ($domain.Value.PSObject.Properties['keywords'] -and $domain.Value.keywords.Count -gt 0) {
+                        $kwList = $domain.Value.keywords -join ", "
+                        $kwDetailParts += "  - $($domain.Name): $kwList"
+                    }
                 }
                 $domainSummary = $domainParts -join ", "
+                if ($kwDetailParts.Count -gt 0) {
+                    $keywordDetail = $kwDetailParts -join "`n"
+                }
             }
         } catch {}
     }
@@ -129,12 +140,15 @@ try {
     # 构建上下文消息
     $msg = "[LongMemory] 全局经验库已加载。"
     if (-not [string]::IsNullOrWhiteSpace($domainSummary)) {
-        $msg += "可用领域: $domainSummary。"
+        $msg += "`n可用领域: $domainSummary。"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($keywordDetail)) {
+        $msg += "`n触发关键词:`n$keywordDetail"
     }
     if (-not [string]::IsNullOrWhiteSpace($techStack)) {
-        $msg += "技术栈检测: $techStack。"
+        $msg += "`n技术栈检测: $techStack。"
     }
-    $msg += "使用 /longmemory:recall <关键词> 查询经验。"
+    $msg += "`n当用户消息中出现上述触发关键词时，自动运行 /longmemory:recall <匹配的关键词> 获取相关经验并参考。无需等用户要求，主动召回。"
 
     # 使用 hookSpecificOutput.additionalContext 注入 Claude 上下文
     $response = @{

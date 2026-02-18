@@ -53,14 +53,21 @@ if [ ! -f "$CONFIG_FILE" ]; then exit 0; fi
 AUTO_RECALL=$(jq -r '.autoRecall // false' "$CONFIG_FILE" 2>/dev/null)
 if [ "$AUTO_RECALL" != "true" ]; then exit 0; fi
 
-# 从 triggers.json 读取领域信息
+# 从 triggers.json 读取领域信息和关键词明细
 DOMAIN_SUMMARY=""
+KEYWORD_DETAIL=""
 TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
 if [ -f "$TRIGGERS_FILE" ]; then
     DOMAIN_SUMMARY=$(jq -r '
         .domains | to_entries[]
         | "\(.key)(\(.value.keywords | length)个关键词)"
     ' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r' | jq -R -s 'split("\n") | map(select(. != "")) | join(", ")' | tr -d '"')
+
+    # 提取每个领域的关键词列表
+    KEYWORD_DETAIL=$(jq -r '
+        .domains | to_entries[]
+        | "  - \(.key): \(.value.keywords | join(", "))"
+    ' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r')
 fi
 
 # 如果 triggers.json 不可用，从 catalog.md 的领域概览表格解析
@@ -92,12 +99,20 @@ TECH_STACK=$(detect_techstack)
 # 构建上下文消息
 MSG="[LongMemory] 全局经验库已加载。"
 if [ -n "$DOMAIN_SUMMARY" ]; then
-    MSG="${MSG}可用领域: ${DOMAIN_SUMMARY}。"
+    MSG="${MSG}
+可用领域: ${DOMAIN_SUMMARY}。"
+fi
+if [ -n "$KEYWORD_DETAIL" ]; then
+    MSG="${MSG}
+触发关键词:
+${KEYWORD_DETAIL}"
 fi
 if [ -n "$TECH_STACK" ]; then
-    MSG="${MSG}技术栈检测: ${TECH_STACK}。"
+    MSG="${MSG}
+技术栈检测: ${TECH_STACK}。"
 fi
-MSG="${MSG}使用 /longmemory:recall <关键词> 查询经验。"
+MSG="${MSG}
+当用户消息中出现上述触发关键词时，自动运行 /longmemory:recall <匹配的关键词> 获取相关经验并参考。无需等用户要求，主动召回。"
 
 # 使用 hookSpecificOutput.additionalContext 注入 Claude 上下文
 jq -n --arg msg "$MSG" '{

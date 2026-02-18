@@ -135,10 +135,16 @@ L0 定位 → L1 确认 → L2 按需读取
 **来源**: 2026-02-14 jwt-impl 项目
 ```
 
-### 加载经验库
+### 自动召回机制
 
-- **自动**: 新会话启动时 SessionStart hook 自动加载领域概览到 Claude 上下文
-- **手动**: 运行 `/longmemory:start` 加载全局经验库概览和技术栈信息
+SessionStart hook 在新会话启动时注入以下信息到 Claude 上下文：
+- 可用领域和关键词明细列表
+- 技术栈检测结果
+- **自动召回指令**：当用户消息中出现触发关键词时，Claude 主动运行 `/longmemory:recall` 获取相关经验
+
+这种方式无需 UserPromptSubmit hook（每条消息触发脚本），由 Claude 自身判断何时召回，零额外开销。
+
+手动加载：运行 `/longmemory:start` 加载全局经验库概览和技术栈信息。
 
 ## 项目记忆文件布局
 
