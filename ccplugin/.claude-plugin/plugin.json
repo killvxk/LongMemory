@@ -1,6 +1,6 @@
 {
   "name": "longmemory",
-  "version": "2.1.2",
+  "version": "3.0.0",
   "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing, global experience library, keyword-triggered recall",
   "author": {
     "name": "killvxk",

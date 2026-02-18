@@ -50,10 +50,10 @@ ccplugin/
 ├── hooks/
 │   └── hooks.json     # Hook 注册（Stop/SessionStart/UserPromptSubmit）
 ├── scripts/
-│   ├── auto-save-memory.sh/.ps1    # Stop hook
-│   ├── session-start.sh/.ps1       # SessionStart hook
-│   ├── keyword-trigger.sh/.ps1     # UserPromptSubmit hook
-│   └── pre-compact.sh/.ps1         # PreCompact hook
+│   ├── auto-save-memory.ps1    # Stop hook
+│   ├── session-start.ps1       # SessionStart hook
+│   ├── keyword-trigger.ps1     # UserPromptSubmit hook
+│   └── pre-compact.ps1         # PreCompact hook
 └── .claude-plugin/
     └── plugin.json
 ```

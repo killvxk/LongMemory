@@ -2,6 +2,11 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库 + 关键词自动召回实现。
 
+## v3.0 — 纯 Windows 版本
+
+- 移除 Bash 脚本，所有 Hook 直接调用 PowerShell
+- 消除 Windows 上 `bash ... || pwsh ...` fallback 导致的启动错误
+
 ## v2.0 新特性
 
 - **检索粒度层**: L0 目录索引 → L1 概览大纲 → L2 完整原文，渐进加载
@@ -175,7 +180,7 @@ L0 定位 → L1 确认 → L2 按需读取
 | UserPromptSubmit | 用户发消息 | 匹配 triggers.json，注入相关经验 | 5s |
 | PreCompact | 上下文压缩前 | 检测 git 变更，建议先保存记忆 | 10s |
 
-跨平台支持: Bash (Unix/macOS) + PowerShell (Windows)
+平台: Windows (PowerShell)
 
 ## 从 v1.0 迁移
 
@@ -184,15 +189,14 @@ v2.0 完全向后兼容。首次运行 `/longmemory:save` 时：
 - 自动生成 catalog.md 和 domains.md
 - 旧的 L0/L1/L2 时间分层标记会被移除
 
-## 从 v2.0 迁移到 v2.1.0
+## 从 v2.x 迁移到 v3.0
 
-v2.1.0 完全向后兼容，无需手动操作。
+v3.0 为纯 Windows (PowerShell) 版本，移除了所有 Bash 脚本。
 
 变更内容：
-- 新增 PreCompact hook：上下文压缩前自动检查并提示保存记忆
-- 所有 hook 新增 timeout 限制（Stop: 10s / SessionStart: 8s / UserPromptSubmit: 5s / PreCompact: 10s）
-- 修复 session-start 脚本中 catalog.md 领域解析的 Bug（现在正确从 triggers.json 读取领域信息）
-- marketplace.json 和 plugin.json 元数据字段补全
+- 移除所有 `.sh` 脚本，仅保留 `.ps1` 版本
+- Hook 命令直接调用 `pwsh`，不再使用 `bash ... || pwsh ...` fallback
+- 消除 Windows 上 bash fallback 导致的 SessionStart hook error
 
 ## License
 
