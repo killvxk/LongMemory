@@ -2,8 +2,14 @@
 # session-start.sh
 # SessionStart hook: 加载全局经验库领域概览并注入到系统消息
 
+# 前置检查: jq 是必需依赖，缺失时以非零码退出让 pwsh fallback 生效
+command -v jq >/dev/null 2>&1 || exit 127
+
 EVENT=$(cat)
-if [ -z "$EVENT" ]; then exit 0; fi
+if [ -z "$EVENT" ]; then
+    echo '{"decision":"allow"}'
+    exit 0
+fi
 
 # 获取工作目录
 CWD=$(echo "$EVENT" | jq -r '.cwd // empty' 2>/dev/null)
@@ -42,14 +48,23 @@ CONFIG_FILE="$GLOBAL_MEMORY_PATH/config.json"
 CATALOG_FILE="$GLOBAL_MEMORY_PATH/catalog.md"
 
 # 检查全局库是否存在
-if [ ! -f "$CONFIG_FILE" ]; then exit 0; fi
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo '{"decision":"allow"}'
+    exit 0
+fi
 
 # 检查 autoRecall 是否启用
 AUTO_RECALL=$(jq -r '.autoRecall // false' "$CONFIG_FILE" 2>/dev/null)
-if [ "$AUTO_RECALL" != "true" ]; then exit 0; fi
+if [ "$AUTO_RECALL" != "true" ]; then
+    echo '{"decision":"allow"}'
+    exit 0
+fi
 
 # 读取目录文件
-if [ ! -f "$CATALOG_FILE" ]; then exit 0; fi
+if [ ! -f "$CATALOG_FILE" ]; then
+    echo '{"decision":"allow"}'
+    exit 0
+fi
 
 # 从 triggers.json 读取领域信息（主要来源，精确可靠）
 DOMAIN_SUMMARY=""

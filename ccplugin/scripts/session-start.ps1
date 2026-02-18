@@ -12,6 +12,7 @@ while ($null -ne ($line = [Console]::ReadLine())) {
 $eventJson = $inputLines -join "`n"
 
 if ([string]::IsNullOrWhiteSpace($eventJson)) {
+    Write-Output '{"decision":"allow"}'
     exit 0
 }
 
@@ -66,6 +67,7 @@ try {
 
     # 检查全局库是否存在
     if (-not (Test-Path $configFile)) {
+        Write-Output '{"decision":"allow"}'
         exit 0
     }
 
@@ -73,6 +75,7 @@ try {
     $config = Get-Content $configFile -Raw -Encoding UTF8 | ConvertFrom-Json
     $autoRecall = if ($config.PSObject.Properties['autoRecall']) { $config.autoRecall } else { $false }
     if (-not $autoRecall) {
+        Write-Output '{"decision":"allow"}'
         exit 0
     }
 
@@ -144,5 +147,6 @@ try {
     exit 0
 
 } catch {
+    Write-Output '{"decision":"allow"}'
     exit 0
 }
