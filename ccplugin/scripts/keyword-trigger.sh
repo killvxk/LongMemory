@@ -39,6 +39,8 @@ discover_global_memory_path() {
 }
 
 GLOBAL_MEMORY_PATH=$(discover_global_memory_path)
+# 展开路径中的 ~ 为 $HOME（jq 读取的字符串不会自动展开 tilde）
+GLOBAL_MEMORY_PATH="${GLOBAL_MEMORY_PATH/#\~/$HOME}"
 CONFIG_FILE="$GLOBAL_MEMORY_PATH/config.json"
 TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
 

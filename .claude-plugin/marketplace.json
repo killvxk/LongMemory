@@ -7,13 +7,13 @@
   },
   "metadata": {
     "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing (L0/L1/L2), global experience library, and keyword-triggered recall",
-    "version": "2.1.0"
+    "version": "2.1.2"
   },
   "plugins": [
     {
       "name": "longmemory",
       "description": "Filesystem-style memory system for Claude Code with retrieval-layered indexing (L0 catalog / L1 overview / L2 full content), cross-project global experience library, and automatic keyword-triggered recall",
-      "version": "2.1.0",
+      "version": "2.1.2",
       "source": "./ccplugin",
       "category": "productivity",
       "author": { "name": "killvxk" },
