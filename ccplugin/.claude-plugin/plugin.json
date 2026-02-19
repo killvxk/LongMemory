@@ -9,5 +9,5 @@
   "homepage": "https://github.com/killvxk/LongMemory",
   "repository": "https://github.com/killvxk/LongMemory",
   "license": "MIT",
-  "keywords": ["memory", "recall", "experience", "global", "layered", "index", "keyword-trigger"]
+  "keywords": ["memory", "recall", "experience", "global", "layered", "index", "auto-recall"]
 }
