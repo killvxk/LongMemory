@@ -2,6 +2,11 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
+## v2.2.0 — Skill 自动触发引导
+
+- 新增 `longmemory` skill，根据会话场景自动触发并引导使用对应命令
+- 支持中英文关键词匹配，覆盖保存/召回/搜索/清理等全部场景
+
 ## v2.1.3 — Bash/PowerShell 共存 + Hook 精简
 
 - 恢复 Bash + PowerShell 双脚本架构（`bash ... || pwsh ...` fallback）
@@ -38,6 +43,10 @@
 | `/longmemory:compact` | 可选磁盘清理，`dry-run` / `clean` / `restore` |
 | `/longmemory:learn` | 从当前会话提炼通用经验存入全局库 |
 | `/longmemory:recall` | 查询全局经验库，支持关键词和领域过滤 |
+
+### Skill 自动触发
+
+`longmemory` skill 会在会话涉及记忆管理时自动激活，根据场景引导使用正确的命令，无需手动记忆命令名称。
 
 ### 命令示例
 

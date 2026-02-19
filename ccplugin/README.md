@@ -36,6 +36,14 @@
 
 平台: Bash (优先) + PowerShell (fallback)
 
+## Skill
+
+| Skill | 说明 |
+|-------|------|
+| `longmemory` | 自动触发引导，根据场景映射到对应命令 |
+
+当会话涉及记忆管理（保存/召回/搜索/清理等）时自动激活，引导使用正确的命令。
+
 ## 目录结构
 
 ```
@@ -50,6 +58,8 @@ ccplugin/
 │   ├── compact.md    # 可选磁盘清理
 │   ├── learn.md      # 全局经验提炼
 │   └── recall.md     # 全局经验查询
+├── skills/
+│   └── longmemory.md # 自动触发 skill
 ├── hooks/
 │   └── hooks.json    # Hook 注册（Stop/SessionStart/PreCompact）
 ├── scripts/
