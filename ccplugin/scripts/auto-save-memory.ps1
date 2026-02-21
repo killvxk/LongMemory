@@ -77,8 +77,8 @@ try {
 
     $response = @{
         decision      = "block"
-        reason        = "检测到未提交的 git 变更，需要先保存工作记忆。"
-        systemMessage = "请运行 /longmemory:save 保存当前工作记忆后再结束会话。"
+        reason        = "/longmemory:save"
+        systemMessage = "检测到会话有实质工作内容，请运行 /longmemory:save 保存当前工作记忆后再结束会话。"
     }
 
     $response | ConvertTo-Json -Depth 10 -Compress
