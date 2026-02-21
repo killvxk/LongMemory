@@ -34,23 +34,35 @@ try {
         exit 0
     }
 
-    # 检测 git 变更
-    $hasChanges = $false
+    # 检测是否有需要保存的工作
+    $hasWork = $false
 
+    # 方式1: git 有未提交变更
     Push-Location $cwd
     try {
         $isGitRepo = git rev-parse --is-inside-work-tree 2>$null
         if ($LASTEXITCODE -eq 0) {
             $gitStatus = git status --porcelain 2>$null
             if (-not [string]::IsNullOrWhiteSpace($gitStatus)) {
-                $hasChanges = $true
+                $hasWork = $true
             }
         }
     } finally {
         Pop-Location
     }
 
-    if (-not $hasChanges) {
+    # 方式2: transcript 存在且有内容（说明会话有实质工作）
+    if (-not $hasWork) {
+        $transcriptPath = if ($event.PSObject.Properties['transcript_path']) { $event.transcript_path } else { $null }
+        if ($transcriptPath -and (Test-Path $transcriptPath)) {
+            $fileInfo = Get-Item $transcriptPath
+            if ($fileInfo.Length -gt 0) {
+                $hasWork = $true
+            }
+        }
+    }
+
+    if (-not $hasWork) {
         exit 0
     }
 

@@ -16,14 +16,24 @@ if [ -z "$CWD" ]; then CWD="${CLAUDE_WORKING_DIR:-$(pwd)}"; fi
 LOCK_FILE="${TMPDIR:-/tmp}/longmemory-stop-${SESSION_ID}"
 if [ -f "$LOCK_FILE" ]; then exit 0; fi
 
-# 检测 git 变更
-HAS_CHANGES=false
+# 检测是否有需要保存的工作
+HAS_WORK=false
+
+# 方式1: git 有未提交变更
 if git -C "$CWD" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     GIT_STATUS=$(git -C "$CWD" status --porcelain 2>/dev/null)
-    if [ -n "$GIT_STATUS" ]; then HAS_CHANGES=true; fi
+    if [ -n "$GIT_STATUS" ]; then HAS_WORK=true; fi
 fi
 
-if [ "$HAS_CHANGES" = false ]; then exit 0; fi
+# 方式2: transcript 存在且有内容（说明会话有实质工作）
+if [ "$HAS_WORK" = false ]; then
+    TRANSCRIPT=$(echo "$EVENT" | jq -r '.transcript_path // empty' 2>/dev/null)
+    if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] && [ -s "$TRANSCRIPT" ]; then
+        HAS_WORK=true
+    fi
+fi
+
+if [ "$HAS_WORK" = false ]; then exit 0; fi
 
 # 确保 docs/memory 目录存在
 mkdir -p "$CWD/docs/memory"
