@@ -2,6 +2,13 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
+## v2.2.1 — Hook 缺陷修复
+
+- 修复 Stop hook 防循环机制失效（`stop_hook_active` 不存在于标准 hook 输入），改用 session_id 临时锁文件
+- Stop/PreCompact hook 补上 `matcher: "*"`
+- auto-save-memory.sh / pre-compact.sh 加入 jq 依赖前置检查，缺失时优雅降级到 PowerShell
+- Stop hook 输出格式规范化：reason 改为解释性文字，指令移到 systemMessage
+
 ## v2.2.0 — Skill 自动触发引导
 
 - 新增 `longmemory` skill，根据会话场景自动触发并引导使用对应命令
@@ -194,9 +201,9 @@ SessionStart hook 在新会话启动时注入以下信息到 Claude 上下文：
 
 | Hook | 触发时机 | Matcher | 功能 | Timeout |
 |------|---------|---------|------|---------|
-| Stop | 会话结束 | — | 检测 git 变更，触发 `/longmemory:save` | 10s |
+| Stop | 会话结束 | `*` | 检测 git 变更，触发 `/longmemory:save` | 10s |
 | SessionStart | 会话启动 | `startup` | 加载全局经验库领域概览到 Claude 上下文 | 10s |
-| PreCompact | 上下文压缩前 | — | 检测 git 变更，建议先保存记忆 | 10s |
+| PreCompact | 上下文压缩前 | `*` | 检测 git 变更，建议先保存记忆 | 10s |
 
 平台: Bash (优先) + PowerShell (fallback)
 

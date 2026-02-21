@@ -18,24 +18,19 @@ if ([string]::IsNullOrWhiteSpace($eventJson)) {
 try {
     $event = $eventJson | ConvertFrom-Json
 
-    $stopHookActive = if ($event.PSObject.Properties['stop_hook_active']) {
-        $event.stop_hook_active
-    } else {
-        $false
-    }
+    $sessionId = if ($event.PSObject.Properties['session_id']) { $event.session_id } else { "unknown" }
 
-    $cwd = if ($event.PSObject.Properties['cwd']) {
+    $cwd = if ($event.PSObject.Properties['cwd'] -and $event.cwd) {
         $event.cwd
+    } elseif ($env:CLAUDE_WORKING_DIR) {
+        $env:CLAUDE_WORKING_DIR
     } else {
-        if ($env:CLAUDE_WORKING_DIR) {
-            $env:CLAUDE_WORKING_DIR
-        } else {
-            Get-Location | Select-Object -ExpandProperty Path
-        }
+        Get-Location | Select-Object -ExpandProperty Path
     }
 
-    # 防止无限循环
-    if ($stopHookActive -eq $true) {
+    # 防止无限循环：使用基于 session_id 的临时文件作为锁
+    $lockFile = Join-Path $env:TEMP "longmemory-stop-$sessionId"
+    if (Test-Path $lockFile) {
         exit 0
     }
 
@@ -65,9 +60,13 @@ try {
         New-Item -ItemType Directory -Path $memoryDir -Force | Out-Null
     }
 
+    # 创建锁文件，防止再次触发时重复 block
+    New-Item -ItemType File -Path $lockFile -Force | Out-Null
+
     $response = @{
-        decision = "block"
-        reason = "/longmemory:save"
+        decision      = "block"
+        reason        = "检测到未提交的 git 变更，需要先保存工作记忆。"
+        systemMessage = "请运行 /longmemory:save 保存当前工作记忆后再结束会话。"
     }
 
     $response | ConvertTo-Json -Depth 10 -Compress

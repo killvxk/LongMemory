@@ -2,6 +2,9 @@
 # pre-compact.sh
 # PreCompact hook: 压缩前检查是否有未保存的 git 变更，提示保存记忆
 
+# 前置检查: jq 是必需依赖，缺失时以非零码退出让 pwsh fallback 生效
+command -v jq >/dev/null 2>&1 || exit 127
+
 EVENT=$(cat)
 if [ -z "$EVENT" ]; then exit 0; fi
 
