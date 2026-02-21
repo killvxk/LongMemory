@@ -1,5 +1,6 @@
 ---
 description: "加载全局经验库概览，检测技术栈，注入领域信息到当前会话上下文"
+allowed-tools: Bash, Read, Glob
 ---
 
 # /longmemory:start — 加载全局经验库
