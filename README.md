@@ -2,6 +2,13 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
+## v2.2.2 — Stop Hook 触发修复
+
+- Stop hook 检测逻辑从仅 git 变更扩展为 git 变更 OR transcript 非空，解决 `docs/` 在 `.gitignore` 导致 hook 不触发的问题
+- 恢复 `reason: "/longmemory:save"` 作为 Claude 触发信号（v2.2.1 误改为解释性文字导致 skill 无法自动调用）
+- skill 目录结构规范化：`skills/longmemory.md` → `skills/longmemory/SKILL.md`
+- `commands/start.md` 补充 `allowed-tools` 声明
+
 ## v2.2.1 — Hook 缺陷修复
 
 - 修复 Stop hook 防循环机制失效（`stop_hook_active` 不存在于标准 hook 输入），改用 session_id 临时锁文件
