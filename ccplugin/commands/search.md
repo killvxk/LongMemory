@@ -4,7 +4,7 @@ argument-hint: <关键词> [scope:类型] [time:范围] [project:路径] [--glob
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
-# LongMemory Search Command
+# 智能搜索 Memory
 
 在 memory 中智能搜索，采用 L0→L1→L2 渐进式检索，按需加载，降低 token 消耗。
 

@@ -4,7 +4,7 @@ argument-hint: [time:范围] [domain:领域] [--global]
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
-# LongMemory List Command
+# 列出 Memory 条目目录索引
 
 列出所有 memory 条目的目录索引，直接读取 catalog.md，支持时间和领域过滤。
 

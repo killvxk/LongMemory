@@ -3,7 +3,7 @@ description: "加载全局经验库概览，检测技术栈，注入领域信息
 allowed-tools: Bash, Read, Glob
 ---
 
-# /longmemory:start — 加载全局经验库
+# 加载全局经验库
 
 在会话开始时手动运行此命令，加载全局经验库的领域概览和技术栈信息。
 

@@ -5,7 +5,7 @@ allowed-tools: Bash, Read, Write, Glob, Grep
 
 # 保存工作记忆
 
-你需要将当前会话的工作记忆保存到项目的 `docs/memory/` 目录，并维护 L0/L1/L2 三层检索结构。
+将当前会话的工作记忆保存到项目的 `docs/memory/` 目录，并维护 L0/L1/L2 三层检索结构。
 
 ## 执行步骤
 

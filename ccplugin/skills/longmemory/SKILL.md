@@ -1,18 +1,17 @@
 ---
 name: longmemory
 description: >
-  Use when starting a session, saving work, recalling experience, searching memory,
-  or managing the memory system. Triggers on: session start, session end, saving progress,
-  recalling past experience, searching history, learning from mistakes, memory cleanup,
-  compacting old records, listing past sessions, retrieving specific memories.
-  Keywords: memory, remember, recall, save, session, experience, history, past work,
-  previous session, what did I do, global experience, lessons learned, best practice,
-  记忆, 保存, 召回, 经验, 历史, 上次, 之前, 回顾, 复盘, 清理
+  This skill should be used when the user asks to "save my work progress",
+  "recall past experience", "what did I do last time", "search memory history",
+  "list past sessions", "clean up old memories", "learn from this session",
+  "保存工作进度", "回顾上次工作", "查找历史记忆", "上次做了什么",
+  "提炼经验", "清理旧记忆", or mentions session memory management,
+  experience recall, or work history retrieval.
 ---
 
 # LongMemory — 记忆系统使用指南
 
-你正在使用 LongMemory 插件，一个基于文件系统的分层记忆系统。根据当前场景选择合适的命令。
+LongMemory 是一个基于文件系统的分层记忆系统。根据当前场景选择合适的命令。
 
 ## 场景 → 命令映射
 

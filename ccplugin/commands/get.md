@@ -4,7 +4,7 @@ argument-hint: [latest|日期|文件名|关键词] [--full] [--global]
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
-# LongMemory Get Command
+# 获取指定 Memory 条目
 
 获取指定的 memory 条目，默认返回 L1 概览，按需加载 L2 完整内容。
 

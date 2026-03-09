@@ -4,7 +4,7 @@ argument-hint: [time:范围] [level:L0|L1|L2] [--global]
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
-# LongMemory All Command
+# 读取所有 Memory 条目
 
 读取所有 memory 条目，默认加载 L0 目录索引，按需升级到 L1 概览或 L2 完整内容。
 
