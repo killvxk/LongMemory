@@ -2,6 +2,13 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
+## v2.3.0 — CLAUDE.md 规范注入
+
+- 新增 `/longmemory:prompts` 命令，将记忆系统使用规范注入到项目的 `CLAUDE.md`
+- 注入内容包含完整的会话生命周期规则（Phase 0/3/4）、阶段检查点、中断恢复流程、禁止行为等
+- 支持三种模式：创建新文件 / 追加到已有文件 / 幂等更新已注入段落
+- Skill 触发关键词新增 CLAUDE.md 配置相关场景
+
 ## v2.2.2 — Stop Hook 触发修复
 
 - Stop hook 检测逻辑从仅 git 变更扩展为 git 变更 OR transcript 非空，解决 `docs/` 在 `.gitignore` 导致 hook 不触发的问题
@@ -57,6 +64,7 @@
 | `/longmemory:compact` | 可选磁盘清理，`dry-run` / `clean` / `restore` |
 | `/longmemory:learn` | 从当前会话提炼通用经验存入全局库 |
 | `/longmemory:recall` | 查询全局经验库，支持关键词和领域过滤 |
+| `/longmemory:prompts` | 将记忆系统使用规范注入项目 `CLAUDE.md` |
 
 ### Skill 自动触发
 
@@ -99,6 +107,9 @@
 /longmemory:recall jwt                 # 搜索全局经验
 /longmemory:recall domain:auth         # 查看 auth 域全部经验
 /longmemory:recall --all               # 列出所有领域
+
+# 注入记忆规范到项目 CLAUDE.md
+/longmemory:prompts                    # 首次注入或幂等更新
 ```
 
 ## 检索粒度层

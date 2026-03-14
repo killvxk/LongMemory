@@ -5,8 +5,9 @@ description: >
   "recall past experience", "what did I do last time", "search memory history",
   "list past sessions", "clean up old memories", "learn from this session",
   "保存工作进度", "回顾上次工作", "查找历史记忆", "上次做了什么",
-  "提炼经验", "清理旧记忆", or mentions session memory management,
-  experience recall, or work history retrieval.
+  "提炼经验", "清理旧记忆", "inject memory rules into CLAUDE.md",
+  "注入记忆规范", "配置 CLAUDE.md", or mentions session memory management,
+  experience recall, work history retrieval, or CLAUDE.md memory configuration.
 ---
 
 # LongMemory — 记忆系统使用指南
@@ -51,6 +52,11 @@ LongMemory 是一个基于文件系统的分层记忆系统。根据当前场景
 - `dry-run`：预览可清理的文件
 - `clean <天数>`：归档超期文件，保留概览
 - `restore <文件名>`：恢复已归档文件
+
+### 将记忆规范注入项目 CLAUDE.md 时
+运行 `/longmemory:prompts` 将记忆系统使用规范写入项目的 `CLAUDE.md`。
+- 不存在则创建，已有则追加，已注入则幂等更新
+- 注入后每次会话自动遵循记忆优先工作流
 
 ## 自动触发规则
 
