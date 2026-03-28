@@ -1,9 +1,8 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "longmemory-plugins",
+  "name": "longmemory",
   "owner": {
-    "name": "killvxk",
-    "email": ""
+    "name": "killvxk"
   },
   "metadata": {
     "description": "Filesystem-style memory system for Claude Code — retrieval-layered indexing (L0/L1/L2), global experience library",

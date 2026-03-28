@@ -12,9 +12,13 @@ SESSION_ID=$(echo "$EVENT" | jq -r '.session_id // "unknown"' 2>/dev/null)
 CWD=$(echo "$EVENT" | jq -r '.cwd // empty' 2>/dev/null)
 if [ -z "$CWD" ]; then CWD="${CLAUDE_WORKING_DIR:-$(pwd)}"; fi
 
-# 防止无限循环：使用基于 session_id 的临时文件作为锁
+# 防止无限循环：使用基于 session_id 的临时文件作为锁（1 小时 TTL）
 LOCK_FILE="${TMPDIR:-/tmp}/longmemory-stop-${SESSION_ID}"
-if [ -f "$LOCK_FILE" ]; then exit 0; fi
+if [ -f "$LOCK_FILE" ]; then
+  LOCK_AGE=$(($(date +%s) - $(stat -c%Y "$LOCK_FILE" 2>/dev/null || stat -f%m "$LOCK_FILE" 2>/dev/null || echo 0)))
+  [ "$LOCK_AGE" -lt 3600 ] && exit 0
+  rm -f "$LOCK_FILE"
+fi
 
 # 检测是否有需要保存的工作
 HAS_WORK=false
@@ -38,12 +42,10 @@ if [ "$HAS_WORK" = false ]; then exit 0; fi
 # 确保 docs/memory 目录存在
 mkdir -p "$CWD/docs/memory"
 
-# 创建锁文件，防止再次触发时重复 block
+# 创建锁文件，防止再次触发时重复提醒
 touch "$LOCK_FILE"
 
 jq -n '{
-  decision: "block",
-  reason: "/longmemory:save",
-  systemMessage: "检测到会话有实质工作内容，请运行 /longmemory:save 保存当前工作记忆后再结束会话。"
+  systemMessage: "检测到会话有实质工作内容，建议运行 /longmemory:save 保存当前工作记忆。"
 }'
 exit 0

@@ -70,63 +70,15 @@ ls docs/memory/ 2>/dev/null | grep "^$(date +%Y-%m-%d)"
 
 ### 5. 写入 L2 完整 Memory 文件
 
-使用 Write 工具创建 `docs/memory/YYYY-MM-DD-brief-description.md`，格式如下：
+使用 Write 工具创建 `docs/memory/YYYY-MM-DD-brief-description.md`。
 
-```markdown
-# [会话标题]
-
-**日期**: YYYY-MM-DD
-**标签**: tag1, tag2, tag3
-
-## Summary
-
-[2-3 句话总结]
-
-## Changes Made
-
-- 文件路径:行号 - 变更描述
-- ...
-
-## Decisions & Rationale
-
-### [决策标题]
-- **决策**: ...
-- **理由**: ...
-
-## Technical Details
-
-- 配置变更: ...
-- API 使用: ...
-
-## Testing
-
-- 测试命令: ...
-- 结果: 通过/失败
-
-## Open Items / Follow-ups
-
-- [ ] 待办事项 1
-- [ ] 待办事项 2
-
-## Learnings
-
-- 经验 1
-- 经验 2
-```
+格式模板参见 `${CLAUDE_PLUGIN_ROOT}/references/save-templates.md` 中的 "L2 完整 Memory 文件格式"。
 
 ### 6. 生成 .overview.md 概览文件（L1）
 
 使用 Write 工具创建 `docs/memory/YYYY-MM-DD-brief-description.overview.md`。
 
-从 L2 文件中提取内容并按以下格式写入：
-
-```markdown
-### YYYY-MM-DD-brief-description
-**摘要**: [Summary 的前2-3句话]
-**关键决策**: [Decisions & Rationale 中每条决策的一句话总结，用逗号分隔；若无决策则填"无"]
-**待办**: [Open Items 中未完成条目的数量] 项未完成
-**标签**: tag1, tag2, tag3
-```
+从 L2 文件中提取内容，按 `${CLAUDE_PLUGIN_ROOT}/references/save-templates.md` 中 "L1 Overview 文件格式" 写入。
 
 ### 7. 更新 catalog.md（L0 目录索引）
 
@@ -165,27 +117,11 @@ ls docs/memory/ 2>/dev/null | grep "^$(date +%Y-%m-%d)"
 
 ### 8. 更新 domains.md（领域索引）
 
-读取 `docs/memory/domains.md`，如果不存在则创建初始结构：
+读取 `docs/memory/domains.md`，如果不存在则按 `${CLAUDE_PLUGIN_ROOT}/references/save-templates.md` 中 "domains.md 初始结构" 创建。
 
-```markdown
-# Memory Domains
-```
-
-**操作逻辑**：
-
-根据新条目的 tags，对每个 tag 执行以下操作：
-
-1. 在文件中查找对应的 `## tag名` section
-2. 如果 section 存在：
-   - 在该 section 下追加 `- YYYY-MM-DD-brief-description`
-   - 将标题中的计数 `(N)` 更新为 `(N+1)`
-3. 如果 section 不存在：
-   - 在文件末尾追加新 section：
-     ```markdown
-
-     ## tag名 (1)
-     - YYYY-MM-DD-brief-description
-     ```
+**操作逻辑**：根据新条目的 tags，对每个 tag：
+1. 查找 `## tag名` section，存在则追加条目并将计数 `(N)` 更新为 `(N+1)`
+2. 不存在则在文件末尾追加 `## tag名 (1)` + `- YYYY-MM-DD-brief-description`
 
 一条记忆可以出现在多个领域下（每个 tag 对应一个领域）。
 
@@ -193,69 +129,23 @@ ls docs/memory/ 2>/dev/null | grep "^$(date +%Y-%m-%d)"
 
 ### 9. 更新 index.json（v2 schema）
 
-读取 `docs/memory/index.json`，如果不存在则创建初始 v2 结构。
-
-**旧版迁移逻辑（v1 → v2）**：
-
-如果读取到的 index.json 的 `version` 字段为 `"1.0"`，自动执行迁移：
-- 删除每个 entry 中的 `layer`、`compacted`、`summary`、`sections` 字段
-- 为每个 entry 新增 `"hasOverview": false`（旧版没有 overview 文件）
-- 将 `version` 更新为 `"2.0"`
-- 重新计算 stats：移除 `byLayer` 字段，保留 `total` 和 `totalSizeBytes`
-- 输出提示: "索引已从 v1.0 迁移到 v2.0"
-
-**v2 schema**：
-
-```json
-{
-  "version": "2.0",
-  "lastUpdated": "YYYY-MM-DDTHH:MM:SSZ",
-  "stats": {
-    "total": 42,
-    "totalSizeBytes": 512000
-  },
-  "entries": [
-    {
-      "file": "YYYY-MM-DD-brief-description.md",
-      "date": "YYYY-MM-DD",
-      "title": "标题",
-      "tags": ["tag1", "tag2", "tag3"],
-      "sizeBytes": 12345,
-      "hasOverview": true
-    }
-  ]
-}
-```
+读取 `docs/memory/index.json`，如果不存在则按 `${CLAUDE_PLUGIN_ROOT}/references/save-templates.md` 中 "index.json v2 schema" 创建初始结构。如果 `version` 为 `"1.0"`，按同文件中 "index.json v1 → v2 迁移" 执行迁移。
 
 **添加新 entry**：
 
 获取文件大小：
 ```bash
-# 跨平台：优先尝试 wc，回退到 stat
 wc -c < docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
   stat -c%s docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
   stat -f%z docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
   echo 0
 ```
 
-在 `entries` 数组末尾追加新 entry：
-```json
-{
-  "file": "YYYY-MM-DD-brief-description.md",
-  "date": "YYYY-MM-DD",
-  "title": "[从 L2 文件中提取的标题]",
-  "tags": ["tag1", "tag2", "tag3"],
-  "sizeBytes": 文件字节数,
-  "hasOverview": true
-}
-```
+在 `entries` 数组末尾追加新 entry（含 file, date, title, tags, sizeBytes, hasOverview: true）。
 
-**更新 stats**：
-- `total`: 当前 entries 数组长度
-- `totalSizeBytes`: 所有 entries 的 sizeBytes 累加
-- `lastUpdated`: 当前 ISO 8601 时间戳
+**更新 stats**：`total` = entries 长度，`totalSizeBytes` = 所有 sizeBytes 累加，`lastUpdated` = 当前 ISO 8601。
 
-如果 index.json 损坏（JSON 解析失败），将原文件备份为 `index.json.bak`，然后重新创建 v2 初始结构并添加当前 entry。
+如果 index.json 损坏（JSON 解析失败），备份为 `index.json.bak` 后重新创建。
 
 使用 Write 工具覆盖写入更新后的 index.json。
 
@@ -283,10 +173,10 @@ wc -c < docs/memory/YYYY-MM-DD-brief-description.md 2>/dev/null || \
 
 ## 完成标准
 
-- [x] `docs/memory/` 目录存在
-- [x] L2 Memory 文件已创建（`YYYY-MM-DD-brief-description.md`）
-- [x] L1 Overview 文件已创建（`YYYY-MM-DD-brief-description.overview.md`）
-- [x] `catalog.md` 已更新（Entries 追加、Recent Overviews 更新）
-- [x] `domains.md` 已更新（按 tags 分域索引）
-- [x] `index.json` 已更新为 v2 schema，新 entry 已添加
-- [x] 用户收到保存成功的确认消息和经验提示
+- [ ] `docs/memory/` 目录存在
+- [ ] L2 Memory 文件已创建（`YYYY-MM-DD-brief-description.md`）
+- [ ] L1 Overview 文件已创建（`YYYY-MM-DD-brief-description.overview.md`）
+- [ ] `catalog.md` 已更新（Entries 追加、Recent Overviews 更新）
+- [ ] `domains.md` 已更新（按 tags 分域索引）
+- [ ] `index.json` 已更新为 v2 schema，新 entry 已添加
+- [ ] 用户收到保存成功的确认消息和经验提示

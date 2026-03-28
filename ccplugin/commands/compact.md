@@ -36,8 +36,8 @@ allowed-tools: Bash, Read, Write, Glob, Grep
 # 获取 days 参数，默认 90
 DAYS=${DAYS:-90}
 
-# 计算边界日期（跨平台兼容）
-BOUNDARY=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${DAYS}d +%Y-%m-%d 2>/dev/null)
+# 计算边界日期（跨平台兼容：GNU date → BSD date → Python fallback）
+BOUNDARY=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || python3 -c "from datetime import datetime,timedelta; print((datetime.now()-timedelta(days=${DAYS})).strftime('%Y-%m-%d'))")
 
 echo "清理边界: ${BOUNDARY} (${DAYS} 天前)"
 ```

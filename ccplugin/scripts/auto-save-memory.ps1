@@ -28,10 +28,14 @@ try {
         Get-Location | Select-Object -ExpandProperty Path
     }
 
-    # 防止无限循环：使用基于 session_id 的临时文件作为锁
+    # 防止无限循环：使用基于 session_id 的临时文件作为锁（1 小时 TTL）
     $lockFile = Join-Path $env:TEMP "longmemory-stop-$sessionId"
     if (Test-Path $lockFile) {
-        exit 0
+        $lockAge = (Get-Date) - (Get-Item $lockFile).LastWriteTime
+        if ($lockAge.TotalHours -lt 1) {
+            exit 0
+        }
+        Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
     }
 
     # 检测是否有需要保存的工作
@@ -72,13 +76,11 @@ try {
         New-Item -ItemType Directory -Path $memoryDir -Force | Out-Null
     }
 
-    # 创建锁文件，防止再次触发时重复 block
+    # 创建锁文件，防止再次触发时重复提醒
     New-Item -ItemType File -Path $lockFile -Force | Out-Null
 
     $response = @{
-        decision      = "block"
-        reason        = "/longmemory:save"
-        systemMessage = "检测到会话有实质工作内容，请运行 /longmemory:save 保存当前工作记忆后再结束会话。"
+        systemMessage = "检测到会话有实质工作内容，建议运行 /longmemory:save 保存当前工作记忆。"
     }
 
     $response | ConvertTo-Json -Depth 10 -Compress
