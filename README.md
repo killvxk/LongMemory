@@ -2,6 +2,13 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
+## v2.3.1 — DRY 重构 + 跨平台改进
+
+- 新增 `ccplugin/references/` 目录，将 save/learn 命令的内联模板抽取为独立 reference 文件
+- compact 日期计算增加 Python fallback（GNU date → BSD date → Python），覆盖更多环境
+- Stop hook 从 block 模式改为 suggest 模式（不再阻塞会话结束），锁文件增加 1 小时 TTL
+- marketplace.json 修正 name 字段，移除空 email
+
 ## v2.3.0 — CLAUDE.md 规范注入
 
 - 新增 `/longmemory:prompts` 命令，将记忆系统使用规范注入到项目的 `CLAUDE.md`
@@ -219,7 +226,7 @@ SessionStart hook 在新会话启动时注入以下信息到 Claude 上下文：
 
 | Hook | 触发时机 | Matcher | 功能 | Timeout |
 |------|---------|---------|------|---------|
-| Stop | 会话结束 | `*` | 检测 git 变更，触发 `/longmemory:save` | 10s |
+| Stop | 会话结束 | `*` | 检测 git 变更或 transcript 非空，建议运行 `/longmemory:save` | 10s |
 | SessionStart | 会话启动 | `startup` | 加载全局经验库领域概览到 Claude 上下文 | 10s |
 | PreCompact | 上下文压缩前 | `*` | 检测 git 变更，建议先保存记忆 | 10s |
 
