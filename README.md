@@ -2,6 +2,13 @@
 
 解决 Claude Code memory 系统的三大痛点：文件膨胀、上下文爆炸、检索低效。通过检索粒度分层（L0/L1/L2）+ 全局经验库实现。
 
+## v2.4.0 — SessionStart 记忆内容直注入
+
+- SessionStart hook 参考 remember 插件模式，直接注入项目记忆 L1 概览到会话上下文（此前仅注入关键词元数据）
+- Claude 启动即拥有最近工作的摘要、关键决策、待办事项，无需手动 `/recall`
+- 即使没有全局经验库，项目记忆仍会被注入（不再因缺少 config.json 提前退出）
+- 注入内容含 index.json 统计信息（总条目数、最近更新日期）
+
 ## v2.3.1 — DRY 重构 + 跨平台改进
 
 - 新增 `ccplugin/references/` 目录，将 save/learn 命令的内联模板抽取为独立 reference 文件

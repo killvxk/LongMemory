@@ -1,7 +1,7 @@
 #!/bin/bash
 # session-start.sh
-# SessionStart hook: 加载全局经验库领域概览并注入到 Claude 上下文
-# 仅在新会话启动时触发（matcher: startup）
+# SessionStart hook: 加载全局经验库领域概览 + 注入项目记忆概览到 Claude 上下文
+# 参考 remember 插件模式：直接注入记忆内容，而非仅注入元数据
 
 # 前置检查: jq 是必需依赖，缺失时以非零码退出让 pwsh fallback 生效
 command -v jq >/dev/null 2>&1 || exit 127
@@ -13,72 +13,84 @@ if [ -z "$EVENT" ]; then exit 0; fi
 CWD=$(echo "$EVENT" | jq -r '.cwd // empty' 2>/dev/null)
 if [ -z "$CWD" ]; then CWD="${CLAUDE_WORKING_DIR:-$(pwd)}"; fi
 
-# 发现全局经验库路径
+# ── 全局经验库 ────────────────────────────────────────────────
+
 discover_global_memory_path() {
-    # 1. 检查项目级配置
     local project_config="$CWD/.claude/longmemory.json"
     if [ -f "$project_config" ]; then
         local path
         path=$(jq -r '.globalMemoryPath // empty' "$project_config" 2>/dev/null)
-        if [ -n "$path" ]; then
-            echo "$path"
-            return
-        fi
+        if [ -n "$path" ]; then echo "$path"; return; fi
     fi
-
-    # 2. 检查用户级配置
     local user_config="$HOME/.claude/longmemory/config.json"
     if [ -f "$user_config" ]; then
         local path
         path=$(jq -r '.globalMemoryPath // empty' "$user_config" 2>/dev/null)
-        if [ -n "$path" ]; then
-            echo "$path"
-            return
-        fi
+        if [ -n "$path" ]; then echo "$path"; return; fi
     fi
-
-    # 3. 默认路径
     echo "${HOME}/.claude/longmemory"
 }
 
+HAS_GLOBAL=false
+DOMAIN_SUMMARY=""
+KEYWORD_DETAIL=""
+
 GLOBAL_MEMORY_PATH=$(discover_global_memory_path)
-# 展开路径中的 ~ 为 $HOME（jq 读取的字符串不会自动展开 tilde）
 GLOBAL_MEMORY_PATH="${GLOBAL_MEMORY_PATH/#\~/$HOME}"
 CONFIG_FILE="$GLOBAL_MEMORY_PATH/config.json"
 
-# 检查全局库是否存在
-if [ ! -f "$CONFIG_FILE" ]; then exit 0; fi
+if [ -f "$CONFIG_FILE" ]; then
+    AUTO_RECALL=$(jq -r '.autoRecall // false' "$CONFIG_FILE" 2>/dev/null)
+    if [ "$AUTO_RECALL" = "true" ]; then
+        HAS_GLOBAL=true
 
-# 检查 autoRecall 是否启用
-AUTO_RECALL=$(jq -r '.autoRecall // false' "$CONFIG_FILE" 2>/dev/null)
-if [ "$AUTO_RECALL" != "true" ]; then exit 0; fi
+        # 从 triggers.json 读取领域信息和关键词明细
+        TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
+        if [ -f "$TRIGGERS_FILE" ]; then
+            DOMAIN_SUMMARY=$(jq -r '
+                .domains | to_entries[]
+                | "\(.key)(\(.value.keywords | length)个关键词)"
+            ' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r' | jq -R -s 'split("\n") | map(select(. != "")) | join(", ")' | tr -d '"')
 
-# 从 triggers.json 读取领域信息和关键词明细
-DOMAIN_SUMMARY=""
-KEYWORD_DETAIL=""
-TRIGGERS_FILE="$GLOBAL_MEMORY_PATH/triggers.json"
-if [ -f "$TRIGGERS_FILE" ]; then
-    DOMAIN_SUMMARY=$(jq -r '
-        .domains | to_entries[]
-        | "\(.key)(\(.value.keywords | length)个关键词)"
-    ' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r' | jq -R -s 'split("\n") | map(select(. != "")) | join(", ")' | tr -d '"')
+            KEYWORD_DETAIL=$(jq -r '
+                .domains | to_entries[]
+                | "  - \(.key): \(.value.keywords | join(", "))"
+            ' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r')
+        fi
 
-    # 提取每个领域的关键词列表
-    KEYWORD_DETAIL=$(jq -r '
-        .domains | to_entries[]
-        | "  - \(.key): \(.value.keywords | join(", "))"
-    ' "$TRIGGERS_FILE" 2>/dev/null | tr -d '\r')
+        # 如果 triggers.json 不可用，从全局 catalog.md 解析
+        GLOBAL_CATALOG="$GLOBAL_MEMORY_PATH/catalog.md"
+        if [ -z "$DOMAIN_SUMMARY" ] && [ -f "$GLOBAL_CATALOG" ]; then
+            DOMAIN_SUMMARY=$(grep -E '^\|[^|]+\|[[:space:]]*[0-9]+[[:space:]]*\|' "$GLOBAL_CATALOG" 2>/dev/null | \
+                awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 != "领域" && $2 != "" && $2 != "---") printf "%s, ", $2}' | \
+                sed 's/, $//')
+        fi
+    fi
 fi
 
-# 如果 triggers.json 不可用，从 catalog.md 的领域概览表格解析
-CATALOG_FILE="$GLOBAL_MEMORY_PATH/catalog.md"
-if [ -z "$DOMAIN_SUMMARY" ] && [ -f "$CATALOG_FILE" ]; then
-    DOMAIN_SUMMARY=$(grep -E '^\|[^|]+\|[[:space:]]*[0-9]+[[:space:]]*\|' "$CATALOG_FILE" 2>/dev/null | \
-        awk -F'|' '{gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); if ($2 != "领域" && $2 != "" && $2 != "---") printf "%s, ", $2}' | \
-        sed 's/, $//')
+# ── 项目记忆 ──────────────────────────────────────────────────
+
+PROJECT_MEMORY=""
+MEMORY_STATS=""
+PROJECT_CATALOG="$CWD/docs/memory/catalog.md"
+PROJECT_INDEX="$CWD/docs/memory/index.json"
+
+# 从 catalog.md 提取 Recent Overviews 段落（L1 概览，直接注入上下文）
+if [ -f "$PROJECT_CATALOG" ]; then
+    PROJECT_MEMORY=$(awk '/^## Recent Overviews/{f=1;next} /^## /{if(f)exit} f' "$PROJECT_CATALOG" 2>/dev/null | tr -d '\r')
 fi
 
-# 检测项目技术栈
+# 从 index.json 读取统计信息
+if [ -f "$PROJECT_INDEX" ]; then
+    TOTAL=$(jq -r '.stats.total // 0' "$PROJECT_INDEX" 2>/dev/null)
+    LAST_DATE=$(jq -r '.lastUpdated // ""' "$PROJECT_INDEX" 2>/dev/null | cut -c1-10)
+    if [ -n "$TOTAL" ] && [ "$TOTAL" != "0" ]; then
+        MEMORY_STATS="共 ${TOTAL} 条，最近更新 ${LAST_DATE}"
+    fi
+fi
+
+# ── 技术栈检测 ────────────────────────────────────────────────
+
 detect_techstack() {
     local stack=""
     [ -f "$CWD/package.json" ] && stack="${stack}Node.js/TypeScript, "
@@ -96,23 +108,53 @@ detect_techstack() {
 
 TECH_STACK=$(detect_techstack)
 
-# 构建上下文消息
-MSG="[LongMemory] 全局经验库已加载。"
-if [ -n "$DOMAIN_SUMMARY" ]; then
-    MSG="${MSG}
-可用领域: ${DOMAIN_SUMMARY}。"
+# ── 判断是否有内容需要注入 ────────────────────────────────────
+
+if [ "$HAS_GLOBAL" = false ] && [ -z "$PROJECT_MEMORY" ] && [ -z "$MEMORY_STATS" ]; then
+    exit 0
 fi
-if [ -n "$KEYWORD_DETAIL" ]; then
-    MSG="${MSG}
+
+# ── 构建上下文消息 ────────────────────────────────────────────
+
+MSG=""
+
+# 全局经验库部分
+if [ "$HAS_GLOBAL" = true ]; then
+    MSG="[LongMemory] 全局经验库已加载。"
+    if [ -n "$DOMAIN_SUMMARY" ]; then
+        MSG="${MSG}
+可用领域: ${DOMAIN_SUMMARY}。"
+    fi
+    if [ -n "$KEYWORD_DETAIL" ]; then
+        MSG="${MSG}
 触发关键词:
 ${KEYWORD_DETAIL}"
+    fi
 fi
+
+# 项目记忆部分（直接注入 L1 概览内容）
+if [ -n "$PROJECT_MEMORY" ]; then
+    if [ -n "$MSG" ]; then MSG="${MSG}
+"; fi
+    MSG="${MSG}[LongMemory] 项目记忆概览 (${MEMORY_STATS:-未知}):
+${PROJECT_MEMORY}"
+elif [ -n "$MEMORY_STATS" ]; then
+    if [ -n "$MSG" ]; then MSG="${MSG}
+"; fi
+    MSG="${MSG}[LongMemory] 项目记忆: ${MEMORY_STATS}。使用 /longmemory:list 查看目录。"
+fi
+
+# 技术栈
 if [ -n "$TECH_STACK" ]; then
     MSG="${MSG}
 技术栈检测: ${TECH_STACK}。"
 fi
-MSG="${MSG}
+
+# 自动召回指令（仅在全局库可用时）
+if [ "$HAS_GLOBAL" = true ]; then
+    MSG="${MSG}
 当用户消息中出现上述触发关键词时，自动运行 /longmemory:recall <匹配的关键词> 获取相关经验并参考。无需等用户要求，主动召回。"
+fi
 
 # 使用 hookSpecificOutput.additionalContext 注入 Claude 上下文
 jq -n --arg msg "$MSG" '{
